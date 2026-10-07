@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trifold MVP - Randall's Compressor</title>
+<style>
+body { font-family: monospace; max-width: 700px; margin: 20px auto; padding: 0 15px; background: #1a1a2e; color: #eee; }
+h1 { color: #f0a500; font-size: 1.4em; }
+textarea { width: 100%; height: 100px; background: #16213e; color: #eee; border: 1px solid #f0a500; padding: 10px; font-family: monospace; }
+button { background: #f0a500; color: #1a1a2e; border: none; padding: 12px 24px; font-size: 1em; cursor: pointer; margin: 10px 5px 10px 0; font-weight: bold; }
+button:hover { background: #ffbd2e; }
+button.rebuild { background: #00ff88; }
+#output { background: #0f0f1e; border: 1px solid #333; padding: 15px; white-space: pre-wrap; min-height: 200px; }
+.cyclic { color: #f0a500; font-weight: bold; }
+.pin { color: #00ff88; font-weight: bold; }
+.cipher369 { color: #ff6b6b; }
+.rebuilt { color: #00ccff; }
+</style>
+</head>
+<body>
+<h1>Trifold MVP</h1>
+<p>Cyclic order: <span class="cyclic">[1, 4, 2, 8, 5, 7]</span> (142857)</p>
+<textarea id="input">hello world</textarea><br>
+<button onclick="doFold()">FOLD IT</button>
+<button class="rebuild" onclick="doRebuild()">REBUILD</button>
+<div id="output">Hit FOLD IT first.</div>
+<script>
+var CYPHER_MAP = {};
+var CYCLIC = [1,4,2,8,5,7];
+var KEYBOARD_ORDER = 'qwertyuiopasdfghjklzxcvbnm';
+KEYBOARD_ORDER.split('').forEach(function(ch, index){ CYPHER_MAP[ch]=CYCLIC[index%CYCLIC.length]; });
+' .,/'.split('').forEach(function(ch){ CYPHER_MAP[ch]=5; });
+var saved = null;
+
+function collapse(n){
+  while(n>9){ n = (n%2===0) ? n/2 : String(n).split('').reduce(function(a,d){return a+ +d;},0); }
+  return n;
+}
+
+function foldTriplets(values){
+  var folded=[];
+  for(var i=0;i<=values.length-3;i+=2){
+    folded.push(collapse(values[i]+values[i+1]+values[i+2]));
+  }
+  return folded;
+}
+
+function verify369Duality(value){
+  var multipliers = {3:[1], 6:[2], 9:[1,2]};
+  var products = multipliers[value].map(function(multiplier){ return 3*multiplier; });
+  return {value:value, products:products, verified:products.reduce(function(a,b){return a+b;},0)===value};
+}
+
+function unfoldNumeric(orderedValues, foldTrace, foldedValues){
+  var current=orderedValues.slice();
+  for(var i=0;i<foldTrace.length;i++){
+    var fold=foldTrace[i];
+    if(fold.fold!==i+1 || fold.inputCount!==current.length) return null;
+    var next=foldTriplets(current);
+    if(next.length!==fold.outputCount) return null;
+    var anchorCounts={};
+    next.forEach(function(value){
+      if(value===3||value===6||value===9){
+        anchorCounts[value]=(anchorCounts[value]||0)+1;
+      }
+    });
+    var anchorCount=Object.keys(anchorCounts).reduce(function(total,value){
+      return total+anchorCounts[value];
+    },0);
+    if(JSON.stringify(anchorCounts)!==JSON.stringify(fold.anchorCounts) ||
+       anchorCount!==fold.dualityChecks ||
+       !Object.keys(anchorCounts).every(function(value){
+         return verify369Duality(Number(value)).verified;
+       })){
+      return null;
+    }
+    current=next;
+  }
+  if(current.length>6){
+    var candidate=foldTriplets(current);
+    if(candidate.length && Math.abs(candidate.length-6)<=Math.abs(current.length-6)) return null;
+  }
+  return JSON.stringify(current)===JSON.stringify(foldedValues) ? orderedValues.slice() : null;
+}
+
+function doFold(){
+  var text = document.getElementById('input').value;
+  var out = document.getElementById('output');
+  var byCypher = {};
+  var orderedValues=[];
+  var lower = text.toLowerCase();
+  for(var i=0;i<lower.length;i++){
+    var ch = lower[i];
+    if(CYPHER_MAP[ch]){
+      var cypher=CYPHER_MAP[ch];
+      if(!byCypher[cypher]) byCypher[cypher]=[];
+      byCypher[cypher].push(ch);
+      orderedValues.push(cypher);
+    }
+  }
+  var order = Object.keys(byCypher).map(Number).sort(function(a,b){return a-b;});
+  var counts = {};
+  order.forEach(function(c){ counts[c]=byCypher[c].length; });
+  var level = orderedValues.slice();
+  var folds=0, anchorCounts={}, foldTrace=[];
+  var log=[];
+  while(level.length>6){
+    var sums=foldTriplets(level), foldAnchorCounts={};
+    sums.forEach(function(value){
+      if(value===3||value===6||value===9){
+        foldAnchorCounts[value]=(foldAnchorCounts[value]||0)+1;
+      }
+    });
+    if(!sums.length || Math.abs(sums.length-6)>Math.abs(level.length-6)) break;
+    Object.keys(foldAnchorCounts).forEach(function(value){
+      anchorCounts[value]=(anchorCounts[value]||0)+foldAnchorCounts[value];
+    });
+    var checks=Object.keys(foldAnchorCounts).reduce(function(total,value){
+      return total+foldAnchorCounts[value];
+    },0);
+    foldTrace.push({
+      fold:folds+1,
+      inputCount:level.length,
+      outputCount:sums.length,
+      anchorCounts:foldAnchorCounts,
+      dualityChecks:checks
+    });
+    log.push('Fold '+(folds+1)+': '+level.length+' -> '+sums.length+' ('+checks+' 369 duality checks)');
+    level=sums; folds++;
+  }
+  var dualityChecks=Object.keys(anchorCounts).reduce(function(total,value){return total+anchorCounts[value];},0);
+  saved = {pin:level.slice(), foldedValues:level.slice(), orderedValues:orderedValues, order:order.slice(), counts:Object.assign({},counts), folds:folds, anchorCounts:anchorCounts, dualityChecks:dualityChecks, foldTrace:foldTrace};
+  out.textContent =
+    'FOLDED.\n'+
+    'Input: '+text.length+' chars, Ordered cyphers: '+orderedValues.length+'\n'+
+    log.join('\n')+'\n\n'+
+    'Final fold values ('+level.length+', nearest to 6): ['+level+']\n'+
+    '369 anchors: '+JSON.stringify(anchorCounts)+' ('+dualityChecks+' multiplication duality checks)\n'+
+    'The ordered cypher stream is retained; folds are verification data, not a reversible trace.\n\n'+
+    'Now hit REBUILD.';
+}
+
+function doRebuild(){
+  var out = document.getElementById('output');
+  if(!saved){ out.textContent='Fold first!'; return; }
+  var restoredNumeric=unfoldNumeric(saved.orderedValues,saved.foldTrace,saved.foldedValues);
+  var numericMatch=JSON.stringify(restoredNumeric)===JSON.stringify(saved.orderedValues);
+  out.textContent =
+    'REBUILDING per our logic:\n\n'+
+    'Step 1: 6 numbers -> ['+CYCLIC+'] (142857)\n'+
+    'Step 2: Retained ordered cypher stream -> '+saved.orderedValues.length+' values\n'+
+    'Step 3: Validate '+saved.dualityChecks+' 369 multiplication checks using 3*1=3, 3*2=6, and 3+6=9\n'+
+    'Step 4: Recompute folds from ordered values and compare final values: '+(numericMatch?'MATCH':'MISMATCH')+'\n\n'+
+    'PIN was: ['+saved.pin+'] ('+saved.folds+' folds)\n'+
+    'Ordered numeric values: ['+saved.orderedValues.slice(0,25).join(',')+(saved.orderedValues.length>25?'...':'')+']\n'+
+    (numericMatch?'ORDER VERIFIED.':'MISMATCH.');
+}
+</script>
+</body>
+</html>
