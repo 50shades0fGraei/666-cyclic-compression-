@@ -34,7 +34,18 @@ A commercial license may be negotiated directly with the copyright holder and ma
 
 No rights are granted by default beyond the MIT terms in LICENSE for open-source use. Any commercial deployment, resale, or integration without a signed commercial agreement is not authorized.
 
-## 5. Contact
+## 5. Recommended commercial pricing model
+
+A practical monetization structure is:
+
+- Evaluation / prototype: free
+- Small commercial deployment: standard annual commercial license
+- Growth / software product integration: mid-tier annual commercial license
+- Enterprise / multi-team / SaaS deployment: custom enterprise agreement
+
+See the repository's PRICING.md for the proposed pricing tiers.
+
+## 6. Contact
 
 To arrange a commercial license, contact the project owner directly and request a commercial-use agreement.
 
