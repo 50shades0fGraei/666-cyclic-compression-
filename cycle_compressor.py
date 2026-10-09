@@ -30,6 +30,7 @@ ROTOR_ROTATIONS = [
     [7, 1, 4, 2, 8, 5],
 ]
 
+# The keyboard sequence maps characters to the canonical cycle in order.
 KEYBOARD_ORDER = "qwertyuiopasdfghjklzxcvbnm"
 CHARACTER_MAP = {
     ch: CYCLIC[index % len(CYCLIC)]

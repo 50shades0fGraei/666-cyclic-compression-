@@ -5,6 +5,7 @@ from pattern_library import (
     CYCLIC,
     MULTIPLIER_ROWS,
     PATTERN_COUNT,
+    analyze_cyclic_stream,
     count_alignments,
     count_cyclic_stream_alignments,
     decode_pattern,
@@ -120,6 +121,39 @@ class PatternLibraryTests(unittest.TestCase):
                 [0, 0, 1, 0, 0, 0],
             ],
         )
+
+    def test_full_spatial_analysis_keeps_six_wide_source_order(self):
+        source = [(1, 1), (4, 2), (2, 3), (8, 4), (5, 5), (7, 6), (4, 7)]
+        result = analyze_cyclic_stream(source)
+        self.assertEqual(result["source_count"], 7)
+        self.assertEqual(result["blocks"][0]["ordered_pairs"], [list(pair) for pair in source[:6]])
+        self.assertEqual(result["tail"], [[4, 7]])
+        self.assertEqual(
+            [rotation["multiplier"] for rotation in result["blocks"][0]["rotations"]],
+            [1, 2, 3, 4, 5, 6],
+        )
+        self.assertEqual(
+            result["blocks"][0]["rotations"][0]["triplet_sums"],
+            [7, 5, 6, 2, 4, 3],
+        )
+        self.assertEqual(
+            result["blocks"][0]["rotations"][0]["triplet_totals"],
+            [7, 14, 15, 20, 13, 12],
+        )
+        self.assertEqual(
+            result["blocks"][0]["rotations"][0]["anchors"],
+            [{"window": 3, "value": 6}, {"window": 6, "value": 3}],
+        )
+        self.assertEqual(
+            result["blocks"][0]["rotations"][1]["rotated_values"],
+            [2, 8, 5, 7, 1, 4],
+        )
+
+    def test_full_spatial_analysis_rejects_invalid_pairs(self):
+        with self.assertRaises(ValueError):
+            analyze_cyclic_stream([(3, 1)])
+        with self.assertRaises(ValueError):
+            analyze_cyclic_stream([(1, 16)])
 
     def test_cypher_order_is_placed_by_cyclic_slot(self):
         result = place_cypher_order(

@@ -39,9 +39,14 @@ The compressor collapses adjacent triplets, sums their values, and reduces them 
   each cypher ID to the matching multiplier/slot sequence. `fold_pair_stream()`
   and `unfold_pair_stream()` recursively encode and restore an ordered pair
   stream, including partial final groups.
+- `analyze_cyclic_stream()` preserves source order in six-pair chunks, applies
+  each multiplier rotation to each complete chunk, and records the six circular
+  overlapping tri-sum totals, digit-sum results, and ordered 3/6/9 checkpoints.
+  An incomplete final chunk is retained unchanged. This is a derived analysis
+  trace, not a compact archive; the ordered pair chunks are its source evidence.
 - `randall_cyclic_compressor.py` is the public branded entry point for the system.
 - `New-logic-and-build.py` remains as a compatibility runner.
-- `mvp-trifold-app-2026-10-06.html` is the browser demo.
+- `app_server.py` and `mvp-trifold-app-2026-10-06.html` provide a local browser workbench backed by the Python compressor.
 
 ## Usage
 
@@ -50,6 +55,26 @@ python randall_cyclic_compressor.py
 ```
 
 This prints the project identity, rotor matrix, and the folded pin for the sample string `hello world`.
+
+### Local workbench
+
+Start the local app with:
+
+```bash
+python app_server.py
+```
+
+Then open <http://127.0.0.1:8765>. Paste text or open a `.txt` file to inspect
+the final pin, fold trace, 369 checks, and serialized size figures. The JSON
+export retains both the source text and full verification state; the pin alone
+is not a lossless compressed archive.
+
+### Deploy to Render
+
+The repository includes a `render.yaml` Blueprint for the browser workbench.
+In the Render Dashboard, choose **New > Blueprint**, connect this repository,
+and apply the Blueprint. Render will build and start the web service; when the
+deployment finishes, open its `onrender.com` URL.
 
 ## License
 

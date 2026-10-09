@@ -14,6 +14,7 @@ from cycle_compressor import (
     unfold_sequence,
 )
 from pattern_library import (
+    analyze_cyclic_stream,
     count_alignments,
     count_cyclic_stream_alignments,
     fold_pair_stream,
@@ -29,6 +30,7 @@ __all__ = [
     "rebuild_sequence",
     "unfold_numeric",
     "unfold_sequence",
+    "analyze_cyclic_stream",
     "count_alignments",
     "count_cyclic_stream_alignments",
     "place_cypher_order",

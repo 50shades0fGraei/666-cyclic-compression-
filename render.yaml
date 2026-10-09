@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: cyclic-compression-workbench
+    runtime: python
+    plan: free
+    buildCommand: python -m compileall -q app_server.py cycle_compressor.py
+    startCommand: python app_server.py
+    envVars:
+      - key: HOST
+        value: 0.0.0.0

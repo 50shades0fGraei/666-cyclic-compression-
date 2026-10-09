@@ -264,6 +264,76 @@ def count_cyclic_stream_alignments(cyphers: Iterable[int]) -> dict[str, object]:
     return result
 
 
+def analyze_cyclic_stream(
+    paired_stream: Iterable[tuple[int, int]],
+) -> dict[str, object]:
+    """Analyze the ordered stream in six-pair chunks and six rotor rotations.
+
+    Each complete chunk retains its source pair order. For each multiplier, its
+    rotor row determines a circular rotation offset; six consecutive overlapping
+    triples are then reduced by repeated decimal digit-sum. An incomplete final
+    chunk is retained as an ordered tail and is not padded or folded.
+    """
+    pairs = list(paired_stream)
+    for pair in pairs:
+        _encode_pair(pair)
+
+    def digit_sum_reduce(value: int) -> int:
+        while value > 9:
+            value = sum(int(digit) for digit in str(value))
+        return value
+
+    blocks: list[dict[str, object]] = []
+    for block_index, offset in enumerate(range(0, len(pairs) - PATTERN_WIDTH + 1, PATTERN_WIDTH), start=1):
+        block_pairs = pairs[offset:offset + PATTERN_WIDTH]
+        source_values = [cyclic_value for cyclic_value, _ in block_pairs]
+        rotations: list[dict[str, object]] = []
+
+        for multiplier in MULTIPLIERS:
+            rotor_row = MULTIPLIER_ROWS[multiplier]
+            rotation_offset = CYCLIC.index(rotor_row[0])
+            rotated = source_values[rotation_offset:] + source_values[:rotation_offset]
+            triplet_totals = [
+                rotated[start]
+                + rotated[(start + 1) % PATTERN_WIDTH]
+                + rotated[(start + 2) % PATTERN_WIDTH]
+                for start in range(PATTERN_WIDTH)
+            ]
+            triplet_sums = [digit_sum_reduce(total) for total in triplet_totals]
+            anchors = [
+                {"window": index + 1, "value": value}
+                for index, value in enumerate(triplet_sums)
+                if value in ANCHOR_VALUES
+            ]
+            rotations.append(
+                {
+                    "multiplier": multiplier,
+                    "rotated_values": rotated,
+                    "triplet_totals": triplet_totals,
+                    "triplet_sums": triplet_sums,
+                    "anchors": anchors,
+                }
+            )
+
+        blocks.append(
+            {
+                "block": block_index,
+                "ordered_pairs": [list(pair) for pair in block_pairs],
+                "rotations": rotations,
+            }
+        )
+
+    complete_count = len(blocks) * PATTERN_WIDTH
+
+    return {
+        "format": "cyclic-spatial-analysis-v1",
+        "base_number": BASE_NUMBER,
+        "source_count": len(pairs),
+        "blocks": blocks,
+        "tail": [list(pair) for pair in pairs[complete_count:]],
+    }
+
+
 def place_cypher_order(
     paired_stream: Iterable[tuple[int, int]],
 ) -> dict[str, object]:
