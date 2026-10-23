@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import struct
-import zlib
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -14,6 +13,15 @@ PATTERN_COUNT = len(CYCLIC) ** CHUNK_SIZE
 FORMAT_VERSION = "dual-track-fold-v1"
 BINARY_MAGIC = b"DTC1"
 CHECKSUM_SIZE = 4
+
+
+def _cyclic_checksum(data: bytes | bytearray) -> int:
+    """Compute a deterministic 32-bit 142857-cyclic checksum (no zlib)."""
+    acc = 142857
+    for idx, b in enumerate(data):
+        mult = CYCLIC[idx % len(CYCLIC)]
+        acc = ((acc * 33) ^ (b * mult + idx)) & 0xFFFFFFFF
+    return acc
 
 
 def encode_pattern(values: Sequence[int]) -> int:
@@ -299,7 +307,7 @@ def pack_text(text: str, library: SymbolLibrary) -> bytes:
         low = pairs[offset + 1][1] if offset + 1 < count else 0
         header.append((high << 4) | low)
 
-    header.extend(struct.pack(">I", zlib.crc32(header)))
+    header.extend(struct.pack(">I", _cyclic_checksum(header)))
     return bytes(header)
 
 
@@ -311,7 +319,7 @@ def unpack_text(payload: bytes) -> str:
     if payload[:4] != BINARY_MAGIC:
         raise ValueError("unsupported binary archive format")
     expected_crc = struct.unpack(">I", payload[-CHECKSUM_SIZE:])[0]
-    actual_crc = zlib.crc32(payload[:-CHECKSUM_SIZE])
+    actual_crc = _cyclic_checksum(payload[:-CHECKSUM_SIZE])
     if expected_crc != actual_crc:
         raise ValueError("binary archive checksum mismatch")
 

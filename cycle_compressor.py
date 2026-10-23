@@ -1,11 +1,16 @@
+# -*- coding: utf-8 -*-
 """Randall's Cyclic Compression Engine.
 
 Copyright (c) 2026 Randall Lujan. All rights reserved.
 Patent pending for the cyclic compression and rotor-folding system described herein.
 
-This module captures the project's current prototype architecture while giving it
-an explicit rotor, fold, and reconstruction model. The design is deterministic,
-readable, and suitable for extension into a more complete cyclic cipher system.
+Includes:
+- Canonical 142857 cyclic rotor and character cipher mapping
+- Deterministic stride-2 overlapping tri-sum folding (LR & RL bidirectional verification)
+- 369 multiplication duality verification and high-digit anchor flags
+- 12-Block Pin-Only Lossless Reconstruction integration (Oct 2026 paper:
+  residue erasure of 3,6 and repeats, 9 as technical 1 / functional 0 signpost,
+  uniform apex 452152 and forward/backward pins 298-1 / 882-7)
 """
 
 from __future__ import annotations
@@ -14,13 +19,20 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Tuple
 
+from pin_only_12block import (
+    DEFAULT_LOGIC,
+    FixedLogic,
+    compress_12block_stream,
+    decode_pin,
+    decompress_12block_stream,
+    encode_12block,
+)
+
 PROJECT_NAME = "Randall's Cyclic Compression"
 COPYRIGHT_NOTICE = "Copyright (c) 2026 Randall Lujan. All rights reserved. Patent pending."
 CYCLIC = [1, 4, 2, 8, 5, 7]
 
-# The rotor is the core 142857 cycle used by the project. Each slot represents a
-# multiplier position in the cyclic matrix, and the sequence of rotations creates
-# the order used by the compressor.
+# The rotor is the core 142857 cycle used by the project.
 ROTOR_ROTATIONS = [
     [1, 4, 2, 8, 5, 7],
     [4, 2, 8, 5, 7, 1],
@@ -30,7 +42,7 @@ ROTOR_ROTATIONS = [
     [7, 1, 4, 2, 8, 5],
 ]
 
-# The keyboard sequence maps characters to the canonical cycle in order.
+# Keyboard sequence maps characters to the canonical cycle in order.
 KEYBOARD_ORDER = "qwertyuiopasdfghjklzxcvbnm"
 CHARACTER_MAP = {
     ch: CYCLIC[index % len(CYCLIC)]
@@ -81,41 +93,94 @@ def _build_sequence(text: str) -> Tuple[List[int], List[str], Dict[int, List[str
         if bucket is not None:
             by_cipher.setdefault(bucket, []).append(ch)
             sequence.append(ch)
-
     order = [cipher for cipher in sorted(by_cipher) if by_cipher[cipher]]
     counts = {cipher: list(by_cipher[cipher]) for cipher in order}
     return order, sequence, counts, by_cipher
 
 
 def fold_triplets(values: Iterable[int]) -> List[int]:
-    """Collapse overlapping triplets into a new sequence representing one fold."""
+    """Fold overlapping triplets at stride 2 left-to-right."""
     items = list(values)
     if len(items) < 3:
         return []
+    return [collapse(items[i] + items[i + 1] + items[i + 2]) for i in range(0, len(items) - 2, 2)]
 
+
+def fold_triplets_with_flag(values: Iterable[int]) -> List[int]:
+    """Fold triplets while encoding the tens-digit flag alongside the collapsed digit."""
+    items = list(values)
+    if len(items) < 3:
+        return []
     folded: List[int] = []
     for idx in range(0, len(items) - 2, 2):
-        triplet = items[idx:idx + 3]
-        folded.append(collapse(sum(triplet)))
+        a, b, c = items[idx : idx + 3]
+        raw_sum = a + b + c
+        digit = collapse(raw_sum)
+        encoded = 10 * digit + (raw_sum // 10)
+        folded.append(encoded)
     return folded
 
 
-def verify_369_duality(value: int) -> Dict[str, object]:
-    """Verify a 369 anchor using the 3x1 and 3x2 multiplication dualities."""
-    multipliers = {3: (1,), 6: (2,), 9: (1, 2)}
-    if value not in multipliers:
-        raise ValueError(f"{value} is not a 369 anchor")
+def fold_trisums_lr(values: List[int]) -> List[int]:
+    """Trisum fold left-to-right at stride 2.
 
-    products = [3 * multiplier for multiplier in multipliers[value]]
+    Walks overlapping triplets (0,1,2), (2,3,4), (4,5,6) …
+    Each triplet collapses to a single digit. This is the canonical
+    direction that advances the pyramid.
+    """
+    return fold_triplets(values)
+
+
+def fold_trisums_rl(values: List[int]) -> List[int]:
+    """Trisum fold right-to-left — the mirror of fold_trisums_lr.
+
+    Reverses the input, applies fold_trisums_lr, then reverses the result.
+    By the stride-2 overlap property, fold_trisums_rl(v) == fold_trisums_lr(v)
+    for any odd-length input, providing bidirectional confirmation.
+    """
+    return list(reversed(fold_trisums_lr(list(reversed(values)))))
+
+
+def check_bidirectional_pairs(lr: List[int], rl: List[int]) -> Dict[str, object]:
+    """Verify the bidirectional fold and extract the last-4 apex pairs."""
+    bidir_verified = (lr == rl)
+    tail = lr[-4:] if len(lr) >= 4 else lr[:]
+    pairs: List[Dict[str, int]] = []
+    for i in range(0, len(tail) - 1, 2):
+        pairs.append({"a": tail[i], "b": tail[i + 1]})
     return {
-        "value": value,
-        "products": products,
-        "verified": sum(products) == value,
+        "bidir_verified": bidir_verified,
+        "apex_pairs": pairs,
     }
 
 
+def _map_anchor_to_nine(digit: int) -> int:
+    """Map any anchor (3, 6, 9) to the visible digit 9.
+    Non-anchor digits are returned unchanged.
+    """
+    return 9 if digit in (3, 6, 9) else digit
+
+
+def _compute_anchor_flags(values: Iterable[int]) -> List[int]:
+    """Compute high-digit flags for 3/6/9 anchors (0: non-anchor/3, 1: 6, 2: 9)."""
+    flags: List[int] = []
+    for v in values:
+        if v == 6:
+            flags.append(1)
+        elif v == 9:
+            flags.append(2)
+        else:
+            flags.append(0)
+    return flags
+
+
 def compress_text(text: str) -> Dict[str, object]:
-    """Fold an ordered cipher stream and retain compact fold-verification data."""
+    """Fold an ordered cipher stream using bidirectional trisum verification and 12-block pin encoding.
+
+    Stops at the fold level closest to six values (canonical PIN), while also
+    recording LR/RL bidirectional verification, apex pairs, anchor flags, and
+    12-block pin-only compression metadata.
+    """
     order, raw_sequence, counts, _ = _build_sequence(text)
     if not raw_sequence:
         return {
@@ -124,11 +189,17 @@ def compress_text(text: str) -> Dict[str, object]:
             "counts": {},
             "sequence": [],
             "ordered_cypher_values": [],
-            "folded_values": [],
             "pin": [],
+            "flags": [],
+            "folded_values": [],
+            "pin_lr": [],
+            "pin_rl": [],
+            "apex_pairs": [],
+            "bidir_verified": True,
             "fold_log": [],
             "anchor_counts": {},
             "duality_checks": 0,
+            "pin_only_12block": compress_12block_stream([]),
             "cyclic": CYCLIC,
             "rotor": CyclicRotor().rotations(),
             "project": PROJECT_NAME,
@@ -142,47 +213,73 @@ def compress_text(text: str) -> Dict[str, object]:
     folds_count = 0
 
     while len(current) > 6:
-        next_values = fold_triplets(current)
-        if not next_values or abs(len(next_values) - 6) > abs(len(current) - 6):
+        lr = fold_trisums_lr(current)
+        rl = fold_trisums_rl(current)
+        if not lr or len(lr) >= len(current):
             break
-
-        fold_anchor_counts = Counter(value for value in next_values if value in (3, 6, 9))
+        if abs(len(lr) - 6) > abs(len(current) - 6):
+            break
+        bidir = check_bidirectional_pairs(lr, rl)
+        fold_anchor_counts = Counter(v for v in lr if v in (3, 6, 9))
         checks = sum(fold_anchor_counts.values())
-        if not all(verify_369_duality(value)["verified"] for value in fold_anchor_counts):
-            raise ValueError("A 369 multiplication duality failed verification")
+        if fold_anchor_counts:
+            if not all(verify_369_duality(v)["verified"] for v in fold_anchor_counts):
+                raise ValueError("A 369 multiplication duality failed verification")
         anchor_counts.update(fold_anchor_counts)
         duality_checks += checks
-        serialized_anchor_counts = {
-            str(value): count for value, count in fold_anchor_counts.items()
-        }
-        folds.append(
-            {
-                "fold": folds_count + 1,
-                "input_count": len(current),
-                "output_count": len(next_values),
-                "anchor_counts": serialized_anchor_counts,
-                "duality_checks": checks,
-            }
-        )
-        current = next_values
+        folds.append({
+            "fold": folds_count + 1,
+            "input_count": len(current),
+            "output_count": len(lr),
+            "bidir_verified": bidir["bidir_verified"],
+            "apex_pairs": bidir["apex_pairs"],
+            "anchor_counts": {str(v): c for v, c in fold_anchor_counts.items()},
+            "duality_checks": checks,
+        })
+        current = lr
         folds_count += 1
 
-    result = {
+    lr_final = fold_trisums_lr(current) or current
+    rl_final = fold_trisums_rl(current) or current
+    if not fold_trisums_lr(current):
+        lr_final = current
+        rl_final = current
+    apex_bidir = check_bidirectional_pairs(lr_final, rl_final)
+
+    return {
         "input_length": len(text),
         "cipher_order": order,
         "counts": counts,
         "sequence": raw_sequence,
         "ordered_cypher_values": ordered_values,
         "pin": current[:],
-        "folded_values": current,
+        "flags": _compute_anchor_flags(current),
+        "folded_values": current[:],
+        "pin_lr": lr_final,
+        "pin_rl": rl_final,
+        "apex_pairs": apex_bidir["apex_pairs"],
+        "bidir_verified": apex_bidir["bidir_verified"],
         "fold_log": folds,
-        "anchor_counts": {str(value): count for value, count in anchor_counts.items()},
+        "anchor_counts": {str(v): c for v, c in anchor_counts.items()},
         "duality_checks": duality_checks,
+        "pin_only_12block": compress_12block_stream(ordered_values),
         "cyclic": CYCLIC,
         "rotor": build_rotor_matrix(),
         "project": PROJECT_NAME,
     }
-    return result
+
+
+def verify_369_duality(value: int) -> Dict[str, object]:
+    """Verify a 369 anchor using the 3x1 and 3x2 multiplication dualities."""
+    multipliers = {3: (1,), 6: (2,), 9: (1, 2)}
+    if value not in multipliers:
+        raise ValueError(f"{value} is not a 369 anchor")
+    products = [3 * multiplier for multiplier in multipliers[value]]
+    return {
+        "value": value,
+        "products": products,
+        "verified": sum(products) == value,
+    }
 
 
 def unfold_numeric(
@@ -222,12 +319,7 @@ def unfold_numeric(
 
 
 def unfold_sequence(pin: Iterable[int], cipher_order: Iterable[int], counts: Dict[int, List[str]]) -> List[str]:
-    """Reverse the fold by replaying the stored per-bucket symbols.
-
-    The six-digit pin is the compressed terminal state, while the cipher_order and the
-    stored bucket values provide the exact original per-bucket symbol inventory needed
-    to reconstruct the symbolic sequence in deterministic order.
-    """
+    """Reverse the fold by replaying the stored per-bucket symbols."""
     ordered_cipher_values = list(cipher_order)
     unfolded: List[str] = []
     for cipher in ordered_cipher_values:
@@ -251,5 +343,7 @@ if __name__ == "__main__":
     print("Input:", sample)
     print("Cipher order:", result["cipher_order"])
     print("PIN:", result["pin"])
+    print("Flags:", result["flags"])
+    print("12-Block Forward Pins:", result["pin_only_12block"]["forward_pins"])
+    print("12-Block Backward Pins:", result["pin_only_12block"]["backward_pins"])
     print("Unfolded:", unfold_sequence(result["pin"], result["cipher_order"], result["counts"]))
-    print("Fold log:", result["fold_log"])

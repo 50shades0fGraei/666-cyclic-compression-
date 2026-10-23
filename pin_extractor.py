@@ -1,0 +1,54 @@
+"""Utility to obtain the 6‑digit PIN from the cyclic compression engine.
+
+The existing :func:`compress_text` in ``cycle_compressor.py`` returns a detailed
+JSON structure containing many diagnostic fields (cipher order, fold log, etc.).
+For scenarios where only the final compressed identifier is required – e.g.
+storing a minimal reference or transmitting a compact payload – the extra
+metadata inflates the output size.
+
+This module provides a thin wrapper that calls ``compress_text`` and returns
+**only** the ``pin`` field.  The function is lightweight, has no side‑effects,
+and produces a deterministic six‑integer list.
+
+Example
+-------
+```python
+from pin_extractor import get_pin
+
+pin = get_pin("hello world")
+print(pin)  # -> [3, 6, 9, 1, 5, 2]  (example values)
+```
+"""
+
+from __future__ import annotations
+
+from typing import List
+
+# Import the main compressor implementation.
+from cycle_compressor import compress_text
+
+
+def get_pin(text: str) -> List[int]:
+    """Compress *text* and return only the 6‑digit PIN.
+
+    Parameters
+    ----------
+    text:
+        The input string to be compressed.
+
+    Returns
+    -------
+    List[int]
+        A list of six integers representing the compressed PIN.
+    """
+    result = compress_text(text)
+    return result["pin"]
+
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) < 2:
+        print("Usage: python pin_extractor.py <text>")
+        sys.exit(1)
+    input_text = " ".join(sys.argv[1:])
+    print(get_pin(input_text))

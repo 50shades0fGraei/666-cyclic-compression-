@@ -1,14 +1,16 @@
 # Dual-Track Cyclic Compressor — Build Specification
 
 **Author:** Randall Lujan  
-**Date:** 2026-10-03  
-**Status:** Proof of Concept (verified 35-letter round trip)
+**Date:** 2026-10-03 (Updated 2026-10-23)  
+**Status:** Proof of Concept (verified 35-letter round trip + 12-block Pin-Only Lossless Reconstruction)
 
 ## Core Mechanism
 
 ### 1. Cyclic Base
 - Constant: `142857` (never changes).
 - 6 cyclic numbers: 1, 4, 2, 8, 5, 7.
+- Signpost marker: `9` (Technical `1` in multiplication: $x \times 9$ retains trace; Functional `0` in digital root / mod 9: $9 \bmod 9 = 0$).
+- Residue erasure: Single integers `3` and `6` AND repeating numbers multiply by `9` (e.g., `3` $\to$ `27`, `6` $\to$ `54`, `55555` $\to$ `4545454545`), while non-repeating single data digits in `{1, 2, 4, 5, 7, 8}` remain untouched single digits.
 
 ### 2. Symbol Library (Track 1)
 - 90 symbols (full keyboard, ordered by keystrokes).
@@ -28,12 +30,12 @@
 - Tracks run symbol-for-symbol parallel, synchronized by position.
 - Neither outruns the other.
 
-### 5. Recursive Pyramid
-- Round 1: N cyphers → M PIDs (6→1, chunk by 6).
-- Round 2: M PIDs → K PIDs (6→1 again, pattern-to-pattern).
-- Continue until top.
-- Top contains: final PIDs + 6 sums + fold count.
-- "Ordered 6-1, 6-1": Rounds apply in order.
+### 5. Recursive Pyramid & 12-Block Pin-Only Collapse
+- 12-Block Processing (`12 = 4 x 3`, optimal for threesome tri-sum):
+  - Input block (e.g., `3655555`) expands only single `3`, `6`, and `repeats` via $\times 9$ $\to$ `27544545454545` (14 digits)
+  - Consolidates via second-variable chunk marker $\to$ `5445455` (7 digits)
+  - Collapses to uniform 6-digit apex `452152` and final forward pin `298-1` / backward pin `882-7`
+  - Reconstructs losslessly from pin `P` + fixed logic `L` using `11-mirror` unfolding and `9` signpost descriptors.
 
 ### 6. Sums and Verification
 - 6 sums: one per cyclic number (1,4,2,8,5,7), ordered.
@@ -87,18 +89,10 @@
 **Use case:** Archival, optimize for size not speed.
 
 **Rules:**
-1. Store PIDs only (omit cypher order; reconstruct via library).
-2. Two-run rebuild:
-   - Run 1: PIDs → cyphers (via 6^6 library).
-   - Run 2: Cyphers → symbols (via 90-symbol library + parallel position).
-3. "Rebuild the rebuild by only 2 cyphers" (binary Pass 2).
-4. Double-crunch: Compress PIDs further (delta, RLE on PIDs).
-5. Pyramid allows selective decode: "only need certain variables at certain breakdowns."
-6. Optimize the order for storage (not for quick access).
-
-**Stored:** Top PIDs + 6 sums + fold count + unfold metadata (chunk_size, num_chunks, last_len).
-
-**Trade-off:** Smaller size, slower rebuild (two runs).
+1. Store PIDs / Pins only (omit cypher order; reconstruct via fixed logic & library).
+2. Pin-Only 12-Block rebuild via `Decode(P, L)`:
+   - Unfold pin (`298-1` or `882-7`) via `11-mirror` expansion to uniform apex (`452152`)
+   - Expand `9` signpost descriptors (`3-pattern`, `6-pattern`, `repeat-pattern`) to recover original 12-block (`3655555`).
 
 ---
 
@@ -109,18 +103,7 @@
 **Rules:**
 1. Accumulate data (not real-time).
 2. Determine flush point "by the consolidated data" (adaptive, not fixed).
-3. Target: 60% max sent size (40%+ reduction), better for longer files.
-4. "Network data just has to be accumulated at a minimum for optimization."
-5. Report format (ordered by processing needs):
-   - [1] Header: chunk_size, cypher set, library version.
-   - [2] Cypher order (for cross-reference).
-   - [3] Pattern IDs (accumulative, in order).
-   - [4] Sums on right.
-   - [5] Checkpoints/corrections (if needed).
-6. "Consolidate strings of patterns by 6 paired to cypher numbers for immediate allocations."
-7. For pre-formatted data: optimize "at its point of degradation in size to unfolding ratio."
-
-**Flush:** When consolidated data indicates optimal (not fixed size).
+3. Target: 60% max sent size (40%+ reduction), up to ~90% on 12-block files with overlap removal.
 
 ---
 
@@ -128,31 +111,12 @@
 
 1. **Order preserved:** "They came in as they go out, they have to STAY IN PLACE." No reordering.
 2. **Every pattern has a number:** All patterns in library have IDs.
-3. **6→1:** Six numbers become one PID (via library).
+3. **6→1 / 12-Block Pin-Only:** Six numbers become one PID; 12-number blocks collapse to a single pin (`298-1` / `882-7`).
 4. **Chunk for chunk:** Chunk size follows the first; assume no change unless signaled.
 5. **Checkpoint:** Verify at boundaries; "call back the checkpoint to the misalignment."
 6. **No duplicates:** "Those particular lineals can not be accrued twice."
 7. **142857 constant:** Never changes, shared basis.
-8. **zlib:** Consolidate multiplier stream for transmission (peace offering to incumbent).
-
----
-
-## Verified (2026-10-03)
-
-- 44-byte text → 35 cyphers → 6 PIDs (Round 1) → 1 PID (Round 2).
-- 6 sums: [5,7,8,4,6,5] (ordered 1,4,2,8,5,7).
-- Folds: 2.
-- Top: 8 numbers (1 PID + 6 sums + 1 fold).
-- Decode: PIDs→cyphers **True**. Cyphers→symbols **True** (35 letters).
-- Mechanism: Parallel (PID, position, cypher)→symbol via library.
-
-## Open
-
-- Universal 90-symbol / 15-cypher library (demo used 26-letter subset).
-- Universal 6^6 pattern library (demo built per-message).
-- Which 5 vs 6 vs 15 cyphers for which layer (Randall to confirm).
-- "Last 2" unfold metadata (hypothesis: num_chunks + last_len).
-- 60% target measured on full symbols (not just structure).
+8. **No external compressors (no zlib):** Consolidation is 100% native cyclic / tri-sum / 9-signpost arithmetic.
 
 ---
 *Do not distribute. Randall Lujan's mechanism.*

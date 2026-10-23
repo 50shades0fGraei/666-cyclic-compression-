@@ -11,6 +11,13 @@ from cycle_compressor import (
     unfold_sequence,
     verify_369_duality,
 )
+from pin_only_12block import (
+    compress_12block_stream,
+    decode_pin,
+    decompress_12block_stream,
+    encode_12block,
+    expand_via_nine_multiplication,
+)
 
 
 class CycleCompressorTests(unittest.TestCase):
@@ -19,7 +26,9 @@ class CycleCompressorTests(unittest.TestCase):
         self.assertEqual(result["input_length"], len("hello world"))
         self.assertTrue(result["cipher_order"])
         self.assertTrue(result["pin"])
+        self.assertTrue(result["bidir_verified"])
         self.assertIn("fold_log", result)
+        self.assertIn("pin_only_12block", result)
         self.assertEqual(result["cyclic"], CYCLIC)
         self.assertEqual(result["project"], PROJECT_NAME)
 
@@ -114,6 +123,45 @@ class CycleCompressorTests(unittest.TestCase):
             persisted["folded_values"],
         )
         self.assertEqual(restored, result["ordered_cypher_values"])
+
+    def test_only_3_6_and_repeats_multiply_by_9(self):
+        # Single non-repeating data digits {1, 2, 4, 5, 7, 8} stay untouched
+        self.assertEqual(expand_via_nine_multiplication("142857"), "142857")
+        # Single 3 -> 27, single 6 -> 54, repeat 55555 -> 4545454545
+        self.assertEqual(expand_via_nine_multiplication("3655555"), "27544545454545")
+        # Mixed: 1 (untouched), 3 (->27), 4 (untouched), 6 (->54), 22 (repeat -> 1818), 8 (untouched)
+        self.assertEqual(expand_via_nine_multiplication("1346228"), "12745418188")
+
+    def test_paper_test_vector_3655555_round_trip(self):
+        encoded = encode_12block("3655555")
+        self.assertEqual(encoded["expanded"], "27544545454545")
+        self.assertEqual(encoded["consolidated"], "5445455")
+        self.assertEqual(encoded["apex"], "452152")
+        self.assertEqual(encoded["forward_pin"], "298-1")
+        self.assertEqual(encoded["backward_pin"], "882-7")
+
+        decoded_fwd = decode_pin("298-1")
+        self.assertEqual(decoded_fwd["reconstructed"], "3655555")
+        self.assertTrue(decoded_fwd["lossless"])
+
+        decoded_bwd = decode_pin("882-7")
+        self.assertEqual(decoded_bwd["reconstructed"], "3655555")
+        self.assertTrue(decoded_bwd["lossless"])
+
+    def test_12block_stream_round_trip(self):
+        stream = "14236555558724441"
+        compressed = compress_12block_stream(stream)
+        self.assertEqual(decompress_12block_stream(compressed, use_backward=False), stream)
+        self.assertEqual(decompress_12block_stream(compressed, use_backward=True), stream)
+
+    def test_workbench_trace_preview_includes_12block_and_bidir(self):
+        from app_server import _build_trace_preview
+        compression = compress_text("hello world")
+        preview = _build_trace_preview(compression)
+        self.assertIn("pin_only_12block", preview)
+        self.assertIn("pin_lr", preview)
+        self.assertIn("pin_rl", preview)
+        self.assertTrue(preview["bidir_verified"])
 
 
 if __name__ == "__main__":

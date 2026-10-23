@@ -21,6 +21,14 @@ from pattern_library import (
     place_cypher_order,
     unfold_pair_stream,
 )
+from pin_only_12block import (
+    DEFAULT_LOGIC,
+    FixedLogic,
+    compress_12block_stream,
+    decode_pin,
+    decompress_12block_stream,
+    encode_12block,
+)
 
 __all__ = [
     "PROJECT_NAME",
@@ -36,6 +44,12 @@ __all__ = [
     "place_cypher_order",
     "fold_pair_stream",
     "unfold_pair_stream",
+    "FixedLogic",
+    "DEFAULT_LOGIC",
+    "encode_12block",
+    "decode_pin",
+    "compress_12block_stream",
+    "decompress_12block_stream",
 ]
 
 
@@ -45,6 +59,7 @@ def main() -> None:
     print(f"Project: {PROJECT_NAME}")
     print("Rotor:", result["rotor"])
     print("PIN:", result["pin"])
+    print("PIN LR / RL:", result["pin_lr"], "/", result["pin_rl"], "Verified:", result["bidir_verified"])
     print("UNFOLD:", unfold_sequence(result["pin"], result["cipher_order"], result["counts"]))
     print(
         "NUMERIC ORDER VERIFIED:",
@@ -54,7 +69,16 @@ def main() -> None:
             result["folded_values"],
         ),
     )
-    print("Fold log:", result["fold_log"])
+
+    # Demonstrate October 2026 Paper Test Vector (3655555 -> 298-1 / 882-7 -> 3655555)
+    block_enc = encode_12block("3655555")
+    block_dec = decode_pin(block_enc["forward_pin"])
+    print(
+        f"12-Block Pin-Only Test Vector: {block_enc['input_block']} -> "
+        f"expanded {block_enc['expanded']} -> consolidated {block_enc['consolidated']} -> "
+        f"apex {block_enc['apex']} -> pin {block_enc['forward_pin']} / {block_enc['backward_pin']} -> "
+        f"decoded {block_dec['reconstructed']}"
+    )
 
 
 if __name__ == "__main__":
