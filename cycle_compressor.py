@@ -50,6 +50,14 @@ CHARACTER_MAP = {
 }
 CHARACTER_MAP.update({" ": 5, ".": 5, ",": 5, "/": 5})
 
+# Cypher Order by Number map: each 6-character group is assigned its cypher number (1..5),
+# multiplied by its cyclic slot to produce the second string (cypher order by number).
+CYPHER_NUMBER_MAP = {
+    ch: ((index // len(CYCLIC)) + 1)
+    for index, ch in enumerate(KEYBOARD_ORDER)
+}
+CYPHER_NUMBER_MAP.update({" ": 5, ".": 5, ",": 5, "/": 5})
+
 
 @dataclass(frozen=True)
 class CyclicRotor:
@@ -206,6 +214,10 @@ def compress_text(text: str) -> Dict[str, object]:
         }
 
     ordered_values = [CHARACTER_MAP[ch] for ch in raw_sequence]
+    ordered_cypher_numbers = [
+        collapse(CYPHER_NUMBER_MAP.get(ch, 1) * CHARACTER_MAP[ch])
+        for ch in raw_sequence
+    ]
     current = ordered_values[:]
     folds: List[Dict[str, object]] = []
     anchor_counts: Counter[int] = Counter()
@@ -262,7 +274,10 @@ def compress_text(text: str) -> Dict[str, object]:
         "fold_log": folds,
         "anchor_counts": {str(v): c for v, c in anchor_counts.items()},
         "duality_checks": duality_checks,
-        "pin_only_12block": compress_12block_stream(ordered_values),
+        "pin_only_12block": compress_12block_stream(
+            ordered_values,
+            cypher_order_stream=ordered_cypher_numbers,
+        ),
         "cyclic": CYCLIC,
         "rotor": build_rotor_matrix(),
         "project": PROJECT_NAME,

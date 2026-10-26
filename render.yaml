@@ -3,8 +3,11 @@ services:
     name: cyclic-compression-workbench
     runtime: python
     plan: free
-    buildCommand: python -m compileall -q app_server.py cycle_compressor.py
+    buildCommand: python -m compileall -q app_server.py cycle_compressor.py pin_only_12block.py
     startCommand: python app_server.py
+    healthCheckPath: /api/health
     envVars:
       - key: HOST
         value: 0.0.0.0
+      - key: PYTHONUTF8
+        value: "1"

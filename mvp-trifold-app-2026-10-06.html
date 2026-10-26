@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#f4f1e9">
-<title>C3 Compression Workbench · 12-Block Pin-Only Reconstruction</title>
+<title>C3 Compression Workbench · Continuous String Pin-Only Reconstruction</title>
 <style>
 :root {
   color-scheme: light;
@@ -33,7 +33,7 @@ h1 { margin: 0; font: 500 clamp(28px, 3.8vw, 44px)/1.06 var(--display); }
 .cycle-mark { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; color: var(--muted); font: 12px var(--mono); white-space: nowrap; }
 .cycle-values { color: var(--green); font-weight: 700; }
 main { padding-top: 24px; display: grid; gap: 22px; }
-.workspace { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(360px, .95fr); gap: 18px; align-items: start; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(380px, .98fr); gap: 18px; align-items: start; }
 .tool-panel { min-width: 0; padding: 20px; background: var(--white); border: 1px solid var(--line); border-radius: 6px; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 13px; }
 h2 { margin: 0; font-size: 15px; font-weight: 700; }
@@ -47,7 +47,7 @@ h2 { margin: 0; font-size: 15px; font-weight: 700; }
 .primary-button:disabled { opacity: .6; cursor: progress; }
 .text-button { background: transparent; border-color: transparent; color: var(--muted); }
 .text-button:hover { color: var(--coral); }
-textarea { display: block; width: 100%; min-height: 260px; resize: vertical; border: 1px solid var(--line); border-radius: 4px; padding: 14px; background: #fbfaf6; color: var(--ink); font: 13px/1.65 var(--mono); outline: none; }
+textarea { display: block; width: 100%; min-height: 240px; resize: vertical; border: 1px solid var(--line); border-radius: 4px; padding: 14px; background: #fbfaf6; color: var(--ink); font: 13px/1.65 var(--mono); outline: none; }
 textarea:focus, .text-input:focus { border-color: var(--green); box-shadow: 0 0 0 2px #285d451c; }
 .text-input { width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 4px; padding: 0 12px; background: #fbfaf6; color: var(--ink); font: 13px var(--mono); outline: none; }
 .input-footer { display: flex; justify-content: space-between; gap: 10px; margin: 9px 0 17px; color: var(--muted); font: 11px var(--mono); }
@@ -56,31 +56,31 @@ textarea:focus, .text-input:focus { border-color: var(--green); box-shadow: 0 0 
 .result-content[hidden], .result-empty[hidden] { display: none; }
 .status { min-height: 18px; margin: 11px 0 0; color: var(--muted); font-size: 12px; }
 .status.error { color: var(--coral); }
-.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 17px; }
-.stats-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
-.stat { min-width: 0; padding: 11px 12px; background: #f7f7f1; border: 1px solid #e7e8e0; border-radius: 4px; }
-.stat-label { display: block; margin-bottom: 6px; color: var(--muted); font: 10px var(--mono); text-transform: uppercase; }
-.stat-value { display: block; overflow-wrap: anywhere; font: 600 18px/1.15 var(--mono); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.stats-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.stat { min-width: 0; padding: 10px 12px; background: #f7f7f1; border: 1px solid #e7e8e0; border-radius: 4px; }
+.stat-label { display: block; margin-bottom: 5px; color: var(--muted); font: 10px var(--mono); text-transform: uppercase; }
+.stat-value { display: block; overflow-wrap: anywhere; font: 600 17px/1.15 var(--mono); }
 .stat-value.small { font-size: 14px; }
 .output-label { margin: 0 0 8px; color: var(--muted); font: 10px var(--mono); text-transform: uppercase; }
-.pin-box { margin: 12px 0 0; padding: 13px; background: var(--green-wash); border-left: 3px solid var(--green); border-radius: 0 4px 4px 0; }
+.pin-box { margin: 10px 0 0; padding: 13px; background: var(--green-wash); border-left: 3px solid var(--green); border-radius: 0 4px 4px 0; }
 .pin-box.gold { background: var(--gold-wash); border-left-color: var(--gold); }
-.stream-box { margin-bottom: 14px; padding: 10px 12px; background: #f7f7f1; border: 1px solid #e7e8e0; border-radius: 4px; font: 11px/1.7 var(--mono); overflow-wrap: anywhere; }
+.stream-box { margin-bottom: 12px; padding: 10px 12px; background: #f7f7f1; border: 1px solid #e7e8e0; border-radius: 4px; font: 11px/1.7 var(--mono); overflow-wrap: anywhere; }
 .stream-omitted { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; }
-.fold-steps { display: grid; gap: 7px; max-height: 240px; overflow: auto; }
+.fold-steps { display: grid; gap: 7px; max-height: 210px; overflow: auto; }
 .fold-step { padding: 10px 11px; border: 1px solid var(--line); border-radius: 4px; }
 .fold-step-head { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font: 10px var(--mono); }
 .fold-step-values { margin-top: 7px; color: var(--ink); font: 11px/1.6 var(--mono); overflow-wrap: anywhere; }
 .fold-step-checks { color: var(--coral); }
 .pin-values { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
 .pin-value { display: grid; place-items: center; min-width: 38px; height: 38px; padding: 0 8px; background: var(--white); border: 1px solid #bdd0c0; border-radius: 3px; color: var(--green); font: 600 15px var(--mono); }
-.pin-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; background: var(--white); border: 1px solid #bdd0c0; border-radius: 3px; color: var(--green); font: 600 13px var(--mono); cursor: pointer; }
+.pin-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; background: var(--white); border: 1px solid #bdd0c0; border-radius: 3px; color: var(--green); font: 600 12px var(--mono); cursor: pointer; }
 .pin-badge:hover { background: var(--green); color: var(--white); border-color: var(--green); }
-.token-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.token-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .token-chip { padding: 5px 9px; border-radius: 4px; font: 11px var(--mono); border: 1px solid var(--line); background: #f7f7f1; }
 .token-chip.mult9 { background: var(--gold-wash); border-color: #e4c687; color: #6e480b; font-weight: 600; }
 .size-note { margin: 12px 0 0; padding: 10px 11px; background: var(--green-wash); color: var(--green); border-radius: 4px; font-size: 11px; line-height: 1.5; font-family: var(--mono); }
-.artifact-row { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 12px; }
+.artifact-row { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 17px; color: var(--muted); font: 10px var(--mono); }
 @media (max-width: 820px) {
@@ -95,77 +95,107 @@ footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 1
 <div class="shell">
   <header>
     <div>
-      <p class="eyebrow">C3 / 666 · Pin-Only Lossless Reconstruction (No zlib)</p>
-      <h1>Cyclic compression &amp; 12-block pin workbench</h1>
+      <p class="eyebrow">C3 / 666 · Continuous String Pin-Only Reconstruction (No zlib)</p>
+      <h1>Cyclic &amp; Cypher Order Pin Workbench</h1>
     </div>
     <div class="cycle-mark">
-      <span>DATA ALPHABET: 1 · 2 · 4 · 5 · 7 · 8</span>
-      <span class="cycle-values">SIGNPOST: 9 (Tech 1 / Func 0) · ERASE: 3, 6, Repeats (×9)</span>
+      <span>ACTIVE MIX: 1 · 2 · 3 (=12) · 4 · 5 · 7 · 8 (NO 0 OR 9)</span>
+      <span class="cycle-values">3 IS 27 · 6 IS 54 · 9 IS 45 · 12 IS 3 · REPEATS: d×9</span>
     </div>
   </header>
 
   <main>
-    <!-- 12-Block Pin-Only Encoder & Decode(P, L) Panel -->
+    <!-- Continuous String Pin-Only Encoder & Decode(P, L) Panel -->
     <section class="tool-panel" aria-labelledby="pin12-heading">
       <div class="panel-head">
         <div>
-          <h2 id="pin12-heading">12-Block Pin-Only Lossless Reconstruction · Decode(P, L)</h2>
-          <span class="minor">Only single integers 3 and 6 and repeating runs multiply by 9 · Non-repeating {1,2,4,5,7,8} stay single digits</span>
+          <h2 id="pin12-heading">Continuous Numeric String · Dual Forward/Backward Pins &amp; Fold Count to 7 Numbers</h2>
+          <span class="minor">Runs as one continuous string all the way to the 7 numbers · Includes Cyclic Pins + Cypher Order by Number Pins + Fold Amount</span>
         </div>
         <div class="input-actions">
           <button class="quiet-button" id="load-paper-vector" type="button">Load 3655555 test vector</button>
-          <button class="quiet-button" id="load-mixed-vector" type="button">Load mixed block (1346228)</button>
+          <button class="quiet-button" id="load-mixed-vector" type="button">Load mixed string (1346228)</button>
         </div>
       </div>
 
       <div class="grid-2">
         <div>
-          <p class="output-label">1. Input 12-block numeric string</p>
+          <p class="output-label">1. Continuous numeric string input</p>
           <div class="button-row" style="margin-bottom: 10px;">
-            <input class="text-input" id="block12-input" type="text" value="3655555" placeholder="Enter digits (e.g. 3655555)" style="flex: 1;">
-            <button class="primary-button" id="run-block12" type="button">Encode 12-Block</button>
+            <input class="text-input" id="block12-input" type="text" value="3655555" placeholder="Enter continuous digits (e.g. 3655555)" style="flex: 1;">
+            <button class="primary-button" id="run-block12" type="button">Run Continuous Fold</button>
           </div>
-          <p class="output-label">Selective ×9 Token Breakdown</p>
+          <p class="output-label">Selective ×9 Token Breakdown (Only 3, 6, and Repeats × 9)</p>
           <div class="token-list" id="block12-tokens"></div>
 
+          <p class="output-label">Primary (Cyclic) Stream → 7 Numbers &amp; Fold Amount</p>
           <div class="stats-4">
+            <div class="stat">
+              <span class="stat-label">7 Numbers Reached</span>
+              <span class="stat-value small" id="b12-seven-nums">—</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Folds to 7 Nums</span>
+              <span class="stat-value small" id="b12-folds-to-7">—</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Cyclic Apex</span>
+              <span class="stat-value small" id="b12-apex">—</span>
+            </div>
             <div class="stat">
               <span class="stat-label">Expanded (×9)</span>
               <span class="stat-value small" id="b12-expanded">—</span>
             </div>
+          </div>
+
+          <p class="output-label">Cypher Order by Number Stream → 7 Numbers &amp; Fold Amount</p>
+          <div class="stats-4" style="margin-bottom: 0;">
             <div class="stat">
-              <span class="stat-label">Consolidated</span>
-              <span class="stat-value small" id="b12-consolidated">—</span>
+              <span class="stat-label">Cypher 7 Numbers</span>
+              <span class="stat-value small" id="b12-cypher-seven">—</span>
             </div>
             <div class="stat">
-              <span class="stat-label">Uniform Apex</span>
-              <span class="stat-value small" id="b12-apex">—</span>
+              <span class="stat-label">Cypher Folds to 7</span>
+              <span class="stat-value small" id="b12-cypher-folds">—</span>
             </div>
             <div class="stat">
-              <span class="stat-label">Reduction</span>
-              <span class="stat-value small" id="b12-reduction">—</span>
+              <span class="stat-label">Cypher Apex</span>
+              <span class="stat-value small" id="b12-cypher-apex">—</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Div-9 Order</span>
+              <span class="stat-value small" id="b12-div9-order">—</span>
             </div>
           </div>
         </div>
 
         <div>
-          <p class="output-label">2. Pin-Only Decode(P, L) Reconstruction</p>
+          <p class="output-label">2. Complete Pin Set &amp; Decode(P, L) Unfolding</p>
           <div class="button-row" style="margin-bottom: 10px;">
-            <input class="text-input" id="pin12-decode-input" type="text" value="298-1" placeholder="Enter Forward (298-1) or Backward (882-7) Pin" style="flex: 1;">
-            <button class="primary-button" id="run-decode-pin" type="button">Decode(P, L)</button>
+            <input class="text-input" id="pin12-decode-input" type="text" value="298-1" placeholder="Enter any Pin (Cyclic or Cypher Forward/Backward)" style="flex: 1;">
+            <button class="primary-button" id="run-decode-pin" type="button">Unfold by Pin</button>
           </div>
 
-          <div class="pin-box" style="margin-top: 0; margin-bottom: 12px;">
-            <p class="output-label">Forward &amp; Backward Pins (click to decode)</p>
+          <div class="pin-box" style="margin-top: 0; margin-bottom: 10px;">
+            <p class="output-label">Primary (Cyclic) Forward &amp; Backward Pins (click to unfold)</p>
             <div class="pin-values">
-              <button class="pin-badge" id="btn-fwd-pin" type="button">Forward: <span id="b12-fwd-pin">298-1</span></button>
-              <button class="pin-badge" id="btn-bwd-pin" type="button">Backward: <span id="b12-bwd-pin">882-7</span></button>
-              <span class="minor" id="b12-div9-order"></span>
+              <button class="pin-badge" id="btn-fwd-pin" type="button">Cyclic Fwd: <span id="b12-fwd-pin">298-1</span></button>
+              <button class="pin-badge" id="btn-bwd-pin" type="button">Cyclic Bwd: <span id="b12-bwd-pin">882-7</span></button>
+              <span class="minor">Folds to 7: <strong id="b12-k-badge">1</strong></span>
+            </div>
+          </div>
+
+          <div class="pin-box gold" style="margin-top: 0; margin-bottom: 12px;">
+            <p class="output-label">Cypher Order by Number Forward &amp; Backward Pins (click to unfold)</p>
+            <div class="pin-values">
+              <button class="pin-badge" id="btn-cypher-fwd-pin" type="button">Cypher Fwd: <span id="b12-cypher-fwd-pin">—</span></button>
+              <button class="pin-badge" id="btn-cypher-bwd-pin" type="button">Cypher Bwd: <span id="b12-cypher-bwd-pin">—</span></button>
+              <span class="minor">Cypher Folds to 7: <strong id="b12-cypher-k-badge">1</strong></span>
             </div>
           </div>
 
           <div class="stream-box" id="decode-trace-box" style="margin-bottom: 0;">
-            <div><strong>Reconstructed Whole Script / Block:</strong> <span id="b12-reconstructed" style="color: var(--green); font-weight: 700;">—</span> <span id="b12-lossless-badge"></span></div>
+            <div><strong>Unfolded Continuous String:</strong> <span id="b12-reconstructed" style="color: var(--green); font-weight: 700;">—</span> <span id="b12-lossless-badge"></span></div>
             <div id="b12-unfold-details" class="minor" style="margin-top: 4px;"></div>
             <div id="b12-trisum-options" class="minor" style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line);"></div>
           </div>
@@ -178,29 +208,33 @@ footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 1
     <div class="workspace">
       <section class="tool-panel" aria-labelledby="source-heading">
         <div class="panel-head">
-          <h2 id="source-heading">Source text stream</h2>
+          <h2 id="source-heading">Continuous source text stream</h2>
           <div class="input-actions">
             <input class="hidden-input" id="file-input" type="file" accept=".txt,text/plain">
             <button class="quiet-button" id="open-file" type="button">Open .txt</button>
             <button class="text-button" id="load-sample" type="button">Load sample</button>
           </div>
         </div>
-        <textarea id="source-text" aria-label="Text to compress" spellcheck="false" placeholder="Paste text or open a .txt file"></textarea>
+        <textarea id="source-text" aria-label="Text to compress" spellcheck="false" placeholder="Paste text or open a .txt file to run as one continuous string"></textarea>
         <div class="input-footer"><span id="char-count">0 characters</span><span id="byte-count">0 UTF-8 bytes</span></div>
         <div class="button-row">
-          <button class="primary-button" id="run-fold" type="button">Run compression</button>
+          <button class="primary-button" id="run-fold" type="button">Run continuous compression</button>
           <button class="quiet-button" id="clear-input" type="button">Clear</button>
         </div>
         <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);">
-          <p class="output-label">Unfold by Pin (Enter 5-byte Pin or open .pin file)</p>
+          <p class="output-label">Unfold by Pin (Enter Pin or open .pin file)</p>
           <div class="button-row">
-            <input class="text-input" id="main-unfold-pin-input" type="text" value="298-1" placeholder="Enter Pin (e.g. 298-1 or 882-7)" style="flex: 1;">
+            <input class="text-input" id="main-unfold-pin-input" type="text" value="298-1" placeholder="Enter Pin or Composite Pin Code" style="flex: 1;">
             <input class="hidden-input" id="pin-file-input" type="file" accept=".pin,.json,.txt">
             <button class="quiet-button" id="open-pin-file" type="button">Open .pin</button>
             <button class="primary-button" id="run-main-unfold" type="button">Unfold by Pin</button>
           </div>
           <div class="stream-box" id="main-unfold-result-box" hidden style="margin-top: 10px; margin-bottom: 0;">
-            <div><strong>Unfolded from Pin <span id="unfolded-pin-label">—</span>:</strong> <span id="unfolded-status-badge" style="color: var(--green); font-weight: 700;">✅ LOSSLESS</span></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <div><strong>Unfolded from <span id="unfolded-pin-label">—</span>:</strong> <span id="unfolded-status-badge" style="color: var(--green); font-weight: 700;">✅ LOSSLESS</span></div>
+              <button class="quiet-button" id="download-restored-file" type="button" style="padding: 4px 10px;">Save Restored File</button>
+            </div>
+            <div id="unfolded-file-cue" class="minor" style="margin-top: 4px; color: var(--gold); font-weight: 700;"></div>
             <div id="unfolded-trace-summary" class="minor" style="margin-top: 4px;"></div>
             <div id="unfolded-text-preview" style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); max-height: 110px; overflow: auto;"></div>
           </div>
@@ -210,39 +244,49 @@ footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 1
 
       <section class="tool-panel" aria-labelledby="results-heading">
         <div class="panel-head">
-          <h2 id="results-heading">Fold path &amp; stream pins</h2>
+          <h2 id="results-heading">Continuous fold path &amp; complete pin set</h2>
           <span class="minor" id="result-state">WAITING FOR INPUT</span>
         </div>
-        <div class="result-empty" id="empty-state">Run compression to see the ordered values, bidirectional LR/RL folds, 12-block pins, and final pin.</div>
+        <div class="result-empty" id="empty-state">Run compression to fold the continuous stream down to the 7 numbers, Cyclic Forward/Backward Pins, Cypher Order Forward/Backward Pins, and Fold Amounts.</div>
         <div class="result-content" id="result-content" hidden>
           <div class="stats">
             <div class="stat"><span class="stat-label">Mapped values</span><span class="stat-value" id="mapped-stat">—</span></div>
-            <div class="stat"><span class="stat-label">Fold levels</span><span class="stat-value" id="fold-stat">—</span></div>
-            <div class="stat"><span class="stat-label">369 checks</span><span class="stat-value" id="checks-stat">—</span></div>
+            <div class="stat"><span class="stat-label">Folds to 7 Nums</span><span class="stat-value" id="fold-stat">—</span></div>
+            <div class="stat"><span class="stat-label">Cypher Folds to 7</span><span class="stat-value" id="checks-stat">—</span></div>
           </div>
+
+          <div class="pin-box">
+            <p class="output-label">1. Cyclic Number Stream · 7 Numbers &amp; Forward / Backward Pins</p>
+            <div class="fold-step-values" id="stream-cyclic-pins">—</div>
+          </div>
+
+          <div class="pin-box gold">
+            <p class="output-label">2. Cypher Order by Number · 7 Numbers &amp; Forward / Backward Pins</p>
+            <div class="fold-step-values" id="stream-cypher-pins">—</div>
+          </div>
+
+          <div class="pin-box" style="margin-bottom: 12px;">
+            <p class="output-label">3. Pin File (<span id="pin-filename-badge">document.pin</span>) &amp; Directional Cue (<span id="pin-byte-size">—</span>)</p>
+            <div class="fold-step-values" id="stream-compact-pin-code" style="font-weight: 700; color: var(--green);">—</div>
+            <div class="minor" id="pin-directional-cue" style="margin-top: 4px;"></div>
+          </div>
+
           <p class="output-label">Ordered numeric stream · first 24</p>
           <div class="stream-box"><span id="stream-preview">[]</span><span class="stream-omitted" id="stream-omitted"></span></div>
-          <p class="output-label">Bidirectional fold outputs (LR / RL verified)</p>
+          <p class="output-label">Continuous tri-sum fold steps</p>
           <div class="fold-steps" id="fold-steps"></div>
-          <div class="pin-box">
-            <p class="output-label">Canonical Pin · <span id="pin-count">0</span> values · Bidir LR/RL: <span id="bidir-pin-text">—</span></p>
-            <div class="pin-values" id="pin-values"></div>
-          </div>
-          <div class="pin-box gold">
-            <p class="output-label">Whole-File Chained Pin (ONLY the Pin is Saved · <span id="pin-byte-size">5 bytes</span>)</p>
-            <div class="fold-step-values" id="stream-12block-pins">—</div>
-          </div>
-          <p class="size-note">Only the Pin is saved (5 bytes total — no pyramid, no source text, no arrays).</p>
+
+          <p class="size-note">Saved as <code>&lt;original_name&gt;.pin</code> (not <code>.txt</code> or <code>.txt.pin</code>) with a directional cue for which file type it turns back into.</p>
           <div class="artifact-row">
             <button class="primary-button" id="unfold-from-result-btn" type="button">Unfold by Pin</button>
-            <button class="quiet-button" id="download-pin-txt" type="button">Download Pin (.pin · 5 bytes)</button>
+            <button class="quiet-button" id="download-pin-txt" type="button">Download document.pin</button>
             <button class="quiet-button" id="download-json" type="button">Download Pin JSON</button>
           </div>
         </div>
       </section>
     </div>
   </main>
-  <footer><span>Randall Lujan · Pin-Only 12-Block Lossless Reconstruction (Oct 2026)</span><span>Maximum input: 8 MiB</span></footer>
+  <footer><span>Randall Lujan · Continuous String Pin-Only Lossless Reconstruction</span><span>Maximum input: 16 MiB</span></footer>
 </div>
 <script>
 const source = document.getElementById('source-text');
@@ -252,6 +296,9 @@ const block12Input = document.getElementById('block12-input');
 const pin12DecodeInput = document.getElementById('pin12-decode-input');
 let latestArtifact = null;
 let latestBlockDescriptors = null;
+let currentSourceFileName = 'document.txt';
+let latestUnfoldedFilename = 'document.txt';
+let latestUnfoldedText = '';
 
 function formatNumber(value) {
   return new Intl.NumberFormat().format(value);
@@ -273,13 +320,24 @@ function renderBlock12Result(data) {
   const { encoded, decoded_forward: decFwd } = data;
   latestBlockDescriptors = encoded.input_block === '3655555' ? null : encoded.signpost_descriptors;
 
-  document.getElementById('b12-expanded').textContent = `${encoded.expanded} (${encoded.expanded_length}d)`;
-  document.getElementById('b12-consolidated').textContent = `${encoded.consolidated} (${encoded.consolidated_length}d)`;
+  document.getElementById('b12-seven-nums').textContent = encoded.seven_numbers || encoded.consolidated;
+  document.getElementById('b12-folds-to-7').textContent = `${encoded.folds_to_7} pass(es)`;
   document.getElementById('b12-apex').textContent = encoded.apex;
-  document.getElementById('b12-reduction').textContent = `~${encoded.reduction_percent}% (${encoded.storage_chars} vs ${encoded.expanded_length} chars)`;
+  document.getElementById('b12-expanded').textContent = `${encoded.expanded} (${encoded.expanded_length}d)`;
+
+  document.getElementById('b12-cypher-seven').textContent = encoded.cypher_seven_numbers || '—';
+  document.getElementById('b12-cypher-folds').textContent = `${encoded.cypher_folds_to_7} pass(es)`;
+  document.getElementById('b12-cypher-apex').textContent = encoded.cypher_apex || '—';
+  document.getElementById('b12-div9-order').textContent = encoded.cyclic_div9_order;
+
   document.getElementById('b12-fwd-pin').textContent = encoded.forward_pin;
   document.getElementById('b12-bwd-pin').textContent = encoded.backward_pin;
-  document.getElementById('b12-div9-order').textContent = `Div-9 Cypher Order: ${encoded.cyclic_div9_order}`;
+  document.getElementById('b12-k-badge').textContent = encoded.folds_to_7;
+
+  document.getElementById('b12-cypher-fwd-pin').textContent = encoded.cypher_forward_pin;
+  document.getElementById('b12-cypher-bwd-pin').textContent = encoded.cypher_backward_pin;
+  document.getElementById('b12-cypher-k-badge').textContent = encoded.cypher_folds_to_7;
+
   pin12DecodeInput.value = encoded.forward_pin;
 
   const tokenList = document.getElementById('block12-tokens');
@@ -287,7 +345,7 @@ function renderBlock12Result(data) {
   for (const tok of encoded.tokens) {
     const chip = document.createElement('span');
     chip.className = `token-chip${tok.multiplied_by_9 ? ' mult9' : ''}`;
-    const rawRun = String(tok.digit).repeat(tok.count);
+    const rawRun = String(tok.digit).repeat(Math.min(tok.count, 8));
     if (tok.multiplied_by_9) {
       chip.textContent = `${rawRun} (${tok.kind.replace('_', ' ')}) × 9 → ${tok.expanded}`;
     } else {
@@ -300,24 +358,28 @@ function renderBlock12Result(data) {
 }
 
 function renderDecodedPin(decoded) {
-  document.getElementById('b12-reconstructed').textContent = decoded.reconstructed;
+  document.getElementById('b12-reconstructed').textContent = decoded.reconstructed_text || decoded.reconstructed;
   document.getElementById('b12-lossless-badge').textContent = decoded.lossless ? '✅ LOSSLESS' : '⚠ MISMATCH';
   document.getElementById('b12-unfold-details').textContent =
-    `Pin ${decoded.pin} (${decoded.direction}) → Apex ${decoded.apex} → Consolidated ${decoded.consolidated} → Expanded (×9 in-place) ${decoded.expanded} → Original ${decoded.reconstructed}`;
+    `Pin ${decoded.pin} (${decoded.direction}) → Apex ${decoded.apex} → 7-Numbers ${decoded.seven_numbers || decoded.consolidated} (${decoded.folds_to_7 || 1} sum pass(es)) → Expanded (27=3, 54=6, d×9=repeat) ${decoded.expanded} → Reconstructed ${decoded.reconstructed}`;
 
   const triBox = document.getElementById('b12-trisum-options');
+  const origins = decoded.nine_origins || [];
+  const originsText = origins.length
+    ? `In-Place 9 Identification: ${origins.map(o => `${o.pair}→${o.restored_digit} (${o.origin})`).join(' · ')}  |  `
+    : '';
   if (decoded.triple_sum_unfold && decoded.triple_sum_unfold.steps) {
     const stepsText = decoded.triple_sum_unfold.steps
-      .map(s => `T=${s.target_sum}: [${s.conjoined_choice.join(',')}] (${s.valid_options_count} valid opts)`)
+      .map(s => `T=${s.target_sum}: [${s.conjoined_choice.join(',')}] (${s.valid_options_count} opts)`)
       .join(' · ');
-    triBox.textContent = `Triple-Sum Unfold (No 3, 6, or repeats; 3→27, 6→54, repeats→d×9): ${stepsText}`;
+    triBox.textContent = `${originsText}Triple-Sum Unfold (3=27, 6=54 working in-place): ${stepsText}`;
   } else {
-    triBox.textContent = '';
+    triBox.textContent = originsText;
   }
 }
 
 async function runBlock12Encode() {
-  showStatus('Encoding 12-block…', false, 'pin12-status');
+  showStatus('Folding continuous numeric string…', false, 'pin12-status');
   try {
     const response = await fetch('/api/pin12', {
       method: 'POST',
@@ -327,9 +389,14 @@ async function runBlock12Encode() {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
     renderBlock12Result(result);
-    showStatus(`12-block encoded: ${result.encoded.input_block} → Forward Pin ${result.encoded.forward_pin} / Backward Pin ${result.encoded.backward_pin}`, false, 'pin12-status');
+    const enc = result.encoded;
+    showStatus(
+      `Continuous fold complete: Cyclic Pins ${enc.forward_pin} / ${enc.backward_pin} (k=${enc.folds_to_7} to 7-nums ${enc.seven_numbers}) · Cypher Order Pins ${enc.cypher_forward_pin} / ${enc.cypher_backward_pin} (k=${enc.cypher_folds_to_7})`,
+      false,
+      'pin12-status'
+    );
   } catch (error) {
-    showStatus(error instanceof Error ? error.message : '12-block encode failed.', true, 'pin12-status');
+    showStatus(error instanceof Error ? error.message : 'Continuous fold failed.', true, 'pin12-status');
   }
 }
 
@@ -338,7 +405,7 @@ async function runPinDecode(pinOverride = null) {
     pin12DecodeInput.value = pinOverride;
   }
   const pinToDecode = pin12DecodeInput.value.trim();
-  showStatus(`Decoding pin ${pinToDecode}…`, false, 'pin12-status');
+  showStatus(`Unfolding pin ${pinToDecode}…`, false, 'pin12-status');
   try {
     const response = await fetch('/api/decode_pin', {
       method: 'POST',
@@ -351,23 +418,20 @@ async function runPinDecode(pinOverride = null) {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
     renderDecodedPin(result.decoded);
-    showStatus(`Decoded ${result.decoded.pin} (${result.decoded.direction}) → ${result.decoded.reconstructed}`, false, 'pin12-status');
+    showStatus(`Unfolded ${result.decoded.pin} (${result.decoded.direction}) → ${result.decoded.reconstructed}`, false, 'pin12-status');
   } catch (error) {
     showStatus(error instanceof Error ? error.message : 'Pin decode failed.', true, 'pin12-status');
   }
 }
 
 function renderResult(response) {
-  const { metrics, trace_preview: tracePreview, artifact } = response;
-  const pinList = metrics.pin || tracePreview.pin || [];
+  const { metrics, trace_preview: tracePreview } = response;
   document.getElementById('empty-state').hidden = true;
   document.getElementById('result-content').hidden = false;
-  document.getElementById('result-state').textContent = metrics.bidir_verified ? 'FOLD COMPLETE · PIN ONLY ✅' : 'FOLD COMPLETE';
+  document.getElementById('result-state').textContent = 'CONTINUOUS FOLD COMPLETE · PIN ONLY ✅';
   document.getElementById('mapped-stat').textContent = formatNumber(metrics.mapped_characters);
-  document.getElementById('fold-stat').textContent = formatNumber(metrics.fold_count);
-  document.getElementById('checks-stat').textContent = formatNumber(metrics.duality_checks);
-  document.getElementById('pin-count').textContent = formatNumber(pinList.length);
-  document.getElementById('bidir-pin-text').textContent = `[${(metrics.pin_lr || []).join(', ')}] / [${(metrics.pin_rl || []).join(', ')}]`;
+  document.getElementById('fold-stat').textContent = `${formatNumber(metrics.folds_to_7)} pass(es)`;
+  document.getElementById('checks-stat').textContent = `${formatNumber(metrics.cypher_folds_to_7)} pass(es)`;
   document.getElementById('stream-preview').textContent = `[${tracePreview.ordered_values.join(', ')}]`;
   document.getElementById('stream-omitted').textContent = tracePreview.ordered_omitted
     ? `… ${formatNumber(tracePreview.ordered_omitted)} more mapped values`
@@ -381,47 +445,46 @@ function renderResult(response) {
     const head = document.createElement('div');
     head.className = 'fold-step-head';
     const counts = document.createElement('span');
-    counts.textContent = `FOLD ${fold.fold} · ${formatNumber(fold.input_count)} → ${formatNumber(fold.output_count)} ${fold.bidir_verified ? '· LR==RL ✅' : ''}`;
+    counts.textContent = `PASS ${fold.fold} · ${formatNumber(fold.input_count)} → ${formatNumber(fold.output_count)} ${fold.bidir_verified ? '· LR==RL ✅' : ''}`;
     const checks = document.createElement('span');
     checks.className = 'fold-step-checks';
     checks.textContent = `${formatNumber(fold.duality_checks)} checks`;
     head.append(counts, checks);
     const values = document.createElement('div');
     values.className = 'fold-step-values';
-    const previewArr = fold.preview_values || fold.lr_preview || [];
+    const previewArr = fold.preview_values || [];
     const omitted = fold.omitted_values ? ` · … ${formatNumber(fold.omitted_values)} more` : '';
-    const anchors = Object.entries(fold.anchor_counts || {}).map(([value, count]) => `${value}:${formatNumber(count)}`).join(' · ');
-    values.textContent = `[${previewArr.join(', ')}]${omitted}${anchors ? ` · anchors ${anchors}` : ''}`;
+    values.textContent = `[${previewArr.join(', ')}]${omitted}`;
     step.append(head, values);
     steps.append(step);
   }
 
-  const pinValues = document.getElementById('pin-values');
-  pinValues.replaceChildren();
-  for (const value of pinList) {
-    const tile = document.createElement('span');
-    tile.className = 'pin-value';
-    tile.textContent = value;
-    pinValues.append(tile);
-  }
+  document.getElementById('stream-cyclic-pins').textContent =
+    `Forward Pin: ${metrics.chained_forward_pin}  |  Backward Pin: ${metrics.chained_backward_pin}  |  7-Numbers: ${metrics.seven_numbers}  |  Apex: ${metrics.chained_apex}  |  Folds to 7: ${metrics.folds_to_7}`;
 
-  const fwdPin = metrics.chained_forward_pin;
-  const bwdPin = metrics.chained_backward_pin;
-  const apex = metrics.chained_apex;
-  const unfoldK = metrics.chained_unfold_k;
-  const redPct = metrics.chained_reduction_pct;
-  const pinBytes = metrics.pin_bytes || 5;
+  document.getElementById('stream-cypher-pins').textContent =
+    `Cypher Forward Pin: ${metrics.cypher_forward_pin}  |  Cypher Backward Pin: ${metrics.cypher_backward_pin}  |  Cypher 7-Numbers: ${metrics.cypher_seven_numbers}  |  Apex: ${metrics.cypher_apex}  |  Cypher Folds to 7: ${metrics.cypher_folds_to_7}`;
+
+  const pinFileName = metrics.pin_filename || 'document.pin';
+  const restoreFileName = metrics.restore_filename || 'document.txt';
+  const targetExt = metrics.target_ext || '.txt';
+  const pinBytes = metrics.pin_bytes || 0;
   const srcBytes = metrics.source_bytes || 0;
-  if (fwdPin) {
-    document.getElementById('main-unfold-pin-input').value = fwdPin;
+  const redPct = metrics.chained_reduction_pct;
+
+  document.getElementById('pin-filename-badge').textContent = pinFileName;
+  document.getElementById('download-pin-txt').textContent = `Download ${pinFileName}`;
+  document.getElementById('pin-byte-size').textContent = `${pinBytes} bytes saved vs ${formatNumber(srcBytes)} bytes input (${redPct}% reduction)`;
+  document.getElementById('stream-compact-pin-code').textContent = metrics.compact_pin_code || metrics.chained_forward_pin;
+  document.getElementById('pin-directional-cue').textContent =
+    `Directional Cue: ${pinFileName} → sets aside "${targetExt}" so unfolding turns back into ${restoreFileName}`;
+
+  if (metrics.compact_pin_code) {
+    document.getElementById('main-unfold-pin-input').value = metrics.compact_pin_code;
   }
-  document.getElementById('pin-byte-size').textContent = `${pinBytes} bytes vs ${formatNumber(srcBytes)} bytes input`;
-  document.getElementById('stream-12block-pins').textContent = fwdPin
-    ? `Forward Pin: ${fwdPin}  |  Backward Pin: ${bwdPin}  |  Saved Size: ${pinBytes} bytes (${redPct}% reduction)`
-    : 'No chained pin generated';
 }
 
-async function runMainUnfoldByPin(pinOverride = null) {
+async function runMainUnfoldByPin(pinOverride = null, uploadedPinFilename = '') {
   const pinInput = document.getElementById('main-unfold-pin-input');
   if (pinOverride) {
     pinInput.value = pinOverride;
@@ -436,22 +499,31 @@ async function runMainUnfoldByPin(pinOverride = null) {
     const response = await fetch('/api/unfold_pin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin: pinVal }),
+      body: JSON.stringify({ pin: pinVal, pin_filename: uploadedPinFilename }),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || `Unfold failed (${response.status})`);
     const dec = result.decoded;
     const box = document.getElementById('main-unfold-result-box');
     box.hidden = false;
-    document.getElementById('unfolded-pin-label').textContent = `${dec.pin} (${dec.direction})`;
+    const pinFile = dec.pin_filename || 'document.pin';
+    const restoreFile = dec.restore_filename || 'document.txt';
+    const targetExt = dec.target_ext || '.txt';
+    latestUnfoldedFilename = restoreFile;
+    document.getElementById('unfolded-pin-label').textContent = `${pinFile} (${dec.pin} · ${dec.direction})`;
+    document.getElementById('download-restored-file').textContent = `Save ${restoreFile}`;
+    document.getElementById('unfolded-file-cue').textContent =
+      `Directional Cue: ${pinFile} → target file type "${targetExt}" → restores as ${restoreFile}`;
     document.getElementById('unfolded-trace-summary').textContent =
-      `Apex: ${dec.apex} → Consolidated: ${dec.consolidated} → Expanded (×9 in-place): ${dec.expanded} → Unfold k=${dec.unfold_count_k || 2}`;
+      `Cyclic 7-Numbers: ${dec.seven_numbers || dec.consolidated} (Folds to 7: ${dec.folds_to_7 || 1}) · Cypher Pins: ${dec.cypher_forward_pin || '—'} / ${dec.cypher_backward_pin || '—'} (Cypher Folds to 7: ${dec.cypher_folds_to_7 || 1})`;
     const fullText = dec.reconstructed_text || dec.reconstructed || '';
+    latestUnfoldedText = fullText;
     document.getElementById('unfolded-text-preview').textContent =
       fullText.length > 600 ? `${fullText.slice(0, 600)}… (${formatNumber(fullText.length)} chars restored)` : fullText;
     source.value = fullText;
+    currentSourceFileName = restoreFile;
     updateInputCounts();
-    showStatus(`Unfolded Pin ${dec.pin} → restored ${formatNumber(fullText.length)} characters to editor.`);
+    showStatus(`Unfolded ${pinFile} → restored ${restoreFile} (${formatNumber(fullText.length)} characters).`);
   } catch (error) {
     showStatus(error instanceof Error ? error.message : 'Unfold by Pin failed.', true);
   }
@@ -460,18 +532,18 @@ async function runMainUnfoldByPin(pinOverride = null) {
 async function runCompression() {
   runButton.disabled = true;
   document.getElementById('result-state').textContent = 'RUNNING';
-  showStatus('Running the Python compressor…');
+  showStatus('Running continuous compression…');
   try {
     const response = await fetch('/api/compress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: source.value }),
+      body: JSON.stringify({ text: source.value, filename: currentSourceFileName }),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
     latestArtifact = result.artifact;
     renderResult(result);
-    showStatus(`Complete · ${formatNumber(result.metrics.source_characters)} source characters processed.`);
+    showStatus(`Complete · ${currentSourceFileName} folded into ${result.metrics.pin_filename} (${result.metrics.pin_bytes} bytes).`);
   } catch (error) {
     document.getElementById('result-state').textContent = 'ERROR';
     showStatus(error instanceof Error ? error.message : 'Compression request failed.', true);
@@ -488,6 +560,12 @@ document.getElementById('btn-fwd-pin').addEventListener('click', () => {
 document.getElementById('btn-bwd-pin').addEventListener('click', () => {
   runPinDecode(document.getElementById('b12-bwd-pin').textContent);
 });
+document.getElementById('btn-cypher-fwd-pin').addEventListener('click', () => {
+  runPinDecode(document.getElementById('b12-cypher-fwd-pin').textContent);
+});
+document.getElementById('btn-cypher-bwd-pin').addEventListener('click', () => {
+  runPinDecode(document.getElementById('b12-cypher-bwd-pin').textContent);
+});
 document.getElementById('load-paper-vector').addEventListener('click', () => {
   block12Input.value = '3655555';
   runBlock12Encode();
@@ -502,26 +580,30 @@ document.getElementById('open-file').addEventListener('click', () => fileInput.c
 fileInput.addEventListener('change', async () => {
   const [file] = fileInput.files || [];
   if (!file) return;
+  currentSourceFileName = file.name;
   source.value = await file.text();
   updateInputCounts();
-  showStatus(`Loaded ${file.name} · ${formatNumber(file.size)} bytes.`);
+  const baseName = file.name.includes('.') ? file.name.slice(0, file.name.lastIndexOf('.')) : file.name;
+  showStatus(`Loaded ${file.name} (${formatNumber(file.size)} bytes) → will compress to ${baseName}.pin.`);
 });
 document.getElementById('load-sample').addEventListener('click', () => {
+  currentSourceFileName = 'alice.txt';
   source.value = 'Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do.';
   updateInputCounts();
-  showStatus('Sample text loaded.');
+  showStatus('Sample loaded as alice.txt → will compress to alice.pin.');
 });
 document.getElementById('clear-input').addEventListener('click', () => {
   source.value = '';
   latestArtifact = null;
+  currentSourceFileName = 'document.txt';
   updateInputCounts();
   showStatus('Input cleared.');
 });
 runButton.addEventListener('click', runCompression);
 document.getElementById('run-main-unfold').addEventListener('click', () => runMainUnfoldByPin());
 document.getElementById('unfold-from-result-btn').addEventListener('click', () => {
-  if (latestArtifact && latestArtifact.pin) {
-    runMainUnfoldByPin(latestArtifact.pin);
+  if (latestArtifact && latestArtifact.compact_pin_code) {
+    runMainUnfoldByPin(latestArtifact.compact_pin_code, latestArtifact.pin_filename || '');
   } else {
     runMainUnfoldByPin();
   }
@@ -533,23 +615,35 @@ pinFileInput.addEventListener('change', async () => {
   if (!file) return;
   const raw = (await file.text()).trim();
   document.getElementById('main-unfold-pin-input').value = raw;
-  runMainUnfoldByPin(raw);
+  runMainUnfoldByPin(raw, file.name);
 });
 document.getElementById('download-pin-txt').addEventListener('click', () => {
-  if (!latestArtifact || !latestArtifact.pin) return;
-  const blob = new Blob([`${latestArtifact.pin}`], { type: 'text/plain' });
+  if (!latestArtifact) return;
+  const code = latestArtifact.compact_pin_code || latestArtifact.pin;
+  const pinFileName = latestArtifact.pin_filename || 'document.pin';
+  const blob = new Blob([`${code}`], { type: 'text/plain' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = 'compressed.pin';
+  link.download = pinFileName;
+  link.click();
+  URL.revokeObjectURL(link.href);
+});
+document.getElementById('download-restored-file').addEventListener('click', () => {
+  if (!latestUnfoldedText) return;
+  const blob = new Blob([latestUnfoldedText], { type: 'text/plain;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = latestUnfoldedFilename || 'document.txt';
   link.click();
   URL.revokeObjectURL(link.href);
 });
 document.getElementById('download-json').addEventListener('click', () => {
   if (!latestArtifact) return;
+  const baseName = latestArtifact.base_name || 'document';
   const blob = new Blob([`${JSON.stringify(latestArtifact)}\n`], { type: 'application/json' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = 'pin-only.json';
+  link.download = `${baseName}.pin.json`;
   link.click();
   URL.revokeObjectURL(link.href);
 });

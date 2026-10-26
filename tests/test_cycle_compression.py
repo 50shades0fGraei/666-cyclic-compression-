@@ -158,10 +158,69 @@ class CycleCompressorTests(unittest.TestCase):
         from app_server import _build_trace_preview
         compression = compress_text("hello world")
         preview = _build_trace_preview(compression)
-        self.assertIn("pin_only_12block", preview)
+        self.assertIn("pin_summary", preview)
+        self.assertTrue(preview["pin_summary"]["forward_pin"])
+        self.assertTrue(preview["pin_summary"]["backward_pin"])
+        self.assertTrue(preview["pin_summary"]["cypher_forward_pin"])
+        self.assertTrue(preview["pin_summary"]["cypher_backward_pin"])
+        self.assertEqual(len(preview["pin_summary"]["seven_numbers"]), 7)
+        self.assertGreaterEqual(preview["pin_summary"]["folds_to_7"], 1)
         self.assertIn("pin_lr", preview)
         self.assertIn("pin_rl", preview)
         self.assertTrue(preview["bidir_verified"])
+
+    def test_app_server_endpoints_and_render_healthcheck(self):
+        import io
+        from app_server import WorkbenchHandler
+
+        def invoke(method: str, path: str, body: dict | None = None) -> tuple[int, bytes]:
+            payload = json.dumps(body).encode("utf-8") if body is not None else b""
+            raw_req = (
+                f"{method} {path} HTTP/1.1\r\n"
+                f"Host: localhost\r\n"
+                f"Content-Type: application/json\r\n"
+                f"Content-Length: {len(payload)}\r\n\r\n"
+            ).encode("utf-8") + payload
+
+            rfile = io.BytesIO(raw_req)
+            wfile = io.BytesIO()
+
+            class DummySocket:
+                def makefile(self, mode: str, *args: object) -> io.BytesIO:
+                    return rfile if "r" in mode else wfile
+
+                def sendall(self, data: bytes) -> None:
+                    wfile.write(data)
+
+            WorkbenchHandler(DummySocket(), ("127.0.0.1", 0), None)
+            raw_resp = wfile.getvalue()
+            header_part, _, resp_body = raw_resp.partition(b"\r\n\r\n")
+            status_code = int(header_part.splitlines()[0].split()[1])
+            return status_code, resp_body
+
+        status, body = invoke("GET", "/api/health")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {"status": "ok"})
+
+        status, _ = invoke("HEAD", "/api/health")
+        self.assertEqual(status, 200)
+
+        status, body = invoke("GET", "/?render_probe=1")
+        self.assertEqual(status, 200)
+        self.assertIn(b"Cyclic &amp; Cypher Order Pin Workbench", body)
+
+        status, body = invoke("POST", "/api/compress", {"text": "Alice was beginning", "filename": "alice.txt"})
+        self.assertEqual(status, 200)
+        comp_data = json.loads(body)
+        self.assertEqual(comp_data["artifact"]["pin_filename"], "alice.pin")
+        self.assertEqual(comp_data["artifact"]["restore_filename"], "alice.txt")
+        compact_code = comp_data["artifact"]["compact_pin_code"]
+
+        status, body = invoke("POST", "/api/unfold_pin", {"pin": compact_code, "pin_filename": "alice.pin"})
+        self.assertEqual(status, 200)
+        unfold_data = json.loads(body)
+        self.assertEqual(unfold_data["decoded"]["reconstructed_text"], "Alice was beginning")
+        self.assertEqual(unfold_data["decoded"]["restore_filename"], "alice.txt")
 
 
 if __name__ == "__main__":

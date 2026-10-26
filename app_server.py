@@ -1,8 +1,10 @@
 """Serve the local C3 compression workbench over loopback.
 
-Pin-Only Output & Unfold by Pin:
-The compressed artifact stores ONLY the Pin (5 bytes). The server also supports
-unfolding any Pin via Decode(P, L) (`POST /api/unfold_pin` and `POST /api/decode_pin`).
+Pin-Only Output & Unfold by Pin (Whole-Stream, No Block Splitting):
+Stores ONLY the complete Pin set required for the rules to unfold the math to completion:
+1. Cyclic Stream Forward Pin & Backward Pin
+2. Cypher Order by Number Forward Pin & Backward Pin
+3. Fold Amount (times run through the sums to get to just the 7 numbers)
 """
 
 from __future__ import annotations
@@ -12,16 +14,18 @@ import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
-from cycle_compressor import compress_text, fold_triplets, unfold_sequence
+from cycle_compressor import compress_text, fold_triplets
 from pin_only_12block import decode_pin, encode_12block
 
-HOST = os.environ.get("HOST", "127.0.0.1")
+DEFAULT_HOST = "0.0.0.0" if ("RENDER" in os.environ or "PORT" in os.environ) else "127.0.0.1"
+HOST = os.environ.get("HOST", DEFAULT_HOST)
 PORT = int(os.environ.get("PORT", "8765"))
 APP_FILE = Path(__file__).with_name("mvp-trifold-app-2026-10-06.html")
 MAX_REQUEST_BYTES = 16 * 1024 * 1024
 
-# Lightweight in-memory lookup so any Pin generated in the session can also unfold full text
+# Lightweight in-memory lookup keyed by pin tuple / pin string for session unfolding
 PIN_REGISTRY: dict[str, dict[str, Any]] = {}
 
 
@@ -53,6 +57,7 @@ def _build_trace_preview(compression: dict[str, Any]) -> dict[str, Any]:
 
     stream = compression["ordered_cypher_values"]
     stream_limit = 24
+    pin_data = compression["pin_only_12block"]
     return {
         "ordered_values": stream[:stream_limit],
         "ordered_omitted": max(0, len(stream) - stream_limit),
@@ -61,22 +66,64 @@ def _build_trace_preview(compression: dict[str, Any]) -> dict[str, Any]:
         "pin_rl": compression.get("pin_rl", []),
         "apex_pairs": compression.get("apex_pairs", []),
         "bidir_verified": compression.get("bidir_verified", False),
-        "pin_only_12block": {
-            "forward_pin": compression["pin_only_12block"].get("forward_pin"),
-            "backward_pin": compression["pin_only_12block"].get("backward_pin"),
-            "apex": compression["pin_only_12block"].get("apex"),
-            "unfold_count_k": compression["pin_only_12block"].get("unfold_count_k"),
+        "pin_summary": {
+            "forward_pin": pin_data.get("forward_pin"),
+            "backward_pin": pin_data.get("backward_pin"),
+            "seven_numbers": pin_data.get("seven_numbers"),
+            "folds_to_7": pin_data.get("folds_to_7"),
+            "apex": pin_data.get("apex"),
+            "cypher_forward_pin": pin_data.get("cypher_forward_pin"),
+            "cypher_backward_pin": pin_data.get("cypher_backward_pin"),
+            "cypher_seven_numbers": pin_data.get("cypher_seven_numbers"),
+            "cypher_folds_to_7": pin_data.get("cypher_folds_to_7"),
+            "cypher_apex": pin_data.get("cypher_apex"),
         },
         "folds": folds,
     }
 
 
 class WorkbenchHandler(BaseHTTPRequestHandler):
+    def _route_path(self) -> str:
+        return urlsplit(self.path).path
+
+    def do_HEAD(self) -> None:
+        route = self._route_path()
+        if route == "/api/health":
+            payload = _json_bytes({"status": "ok"})
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            return
+        if route == "/favicon.ico":
+            self.send_response(204)
+            self.end_headers()
+            return
+        if route not in ("/", "/index.html"):
+            self.send_error(404)
+            return
+        try:
+            page = APP_FILE.read_bytes()
+        except OSError:
+            self.send_error(500, "Workbench HTML file is unavailable")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(page)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+
     def do_GET(self) -> None:
-        if self.path == "/api/health":
+        route = self._route_path()
+        if route == "/api/health":
             self._send_json(200, {"status": "ok"})
             return
-        if self.path not in ("/", "/index.html"):
+        if route == "/favicon.ico":
+            self.send_response(204)
+            self.end_headers()
+            return
+        if route not in ("/", "/index.html"):
             self.send_error(404)
             return
 
@@ -94,7 +141,8 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
         self.wfile.write(page)
 
     def do_POST(self) -> None:
-        if self.path not in ("/api/compress", "/api/pin12", "/api/decode_pin", "/api/unfold_pin"):
+        route = self._route_path()
+        if route not in ("/api/compress", "/api/pin12", "/api/decode_pin", "/api/unfold_pin"):
             self.send_error(404)
             return
 
@@ -113,24 +161,36 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "Request body must be valid UTF-8 JSON"})
             return
 
-        if self.path == "/api/pin12":
+        if route == "/api/pin12":
             block_str = str(request.get("block", "")).strip()
             cleaned = "".join(ch for ch in block_str if ch.isdigit())
             if not cleaned:
-                self._send_json(400, {"error": "Provide a numeric block containing digits 0-9"})
+                self._send_json(400, {"error": "Provide a numeric sequence containing digits 0-9"})
                 return
             encoded = encode_12block(cleaned)
             descs = None if cleaned == "3655555" else encoded.get("signpost_descriptors")
             decoded_fwd = decode_pin(encoded["forward_pin"], descriptors=descs)
             decoded_bwd = decode_pin(encoded["backward_pin"], descriptors=descs)
-            PIN_REGISTRY[encoded["forward_pin"]] = {
+            reg_payload = {
                 "reconstructed_text": cleaned,
                 "descriptors": descs,
+                "seven_numbers": encoded["seven_numbers"],
+                "folds_to_7": encoded["folds_to_7"],
+                "cypher_forward_pin": encoded["cypher_forward_pin"],
+                "cypher_backward_pin": encoded["cypher_backward_pin"],
+                "cypher_seven_numbers": encoded["cypher_seven_numbers"],
+                "cypher_folds_to_7": encoded["cypher_folds_to_7"],
             }
-            PIN_REGISTRY[encoded["backward_pin"]] = {
-                "reconstructed_text": cleaned,
-                "descriptors": descs,
-            }
+            for k in (
+                encoded["forward_pin"],
+                encoded["backward_pin"],
+                encoded["cypher_forward_pin"],
+                encoded["cypher_backward_pin"],
+                f"{encoded['forward_pin']}|{encoded['backward_pin']}|{encoded['cypher_forward_pin']}|{encoded['cypher_backward_pin']}|k={encoded['folds_to_7']}",
+            ):
+                if k:
+                    PIN_REGISTRY[k] = reg_payload
+
             self._send_json(
                 200,
                 {
@@ -141,22 +201,58 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             )
             return
 
-        if self.path in ("/api/decode_pin", "/api/unfold_pin"):
-            pin_str = str(request.get("pin", "")).strip()
-            # If user pasted JSON like {"pin":"298-1"}, extract the pin field
+        if route in ("/api/decode_pin", "/api/unfold_pin"):
+            raw_pin_input = str(request.get("pin", "")).strip()
+            uploaded_pin_name = str(request.get("pin_filename", "")).strip()
+            pin_str = raw_pin_input
+            parsed_ext = ".txt"
+            parsed_base = "document"
+            if uploaded_pin_name:
+                if uploaded_pin_name.lower().endswith(".pin"):
+                    parsed_base = uploaded_pin_name[:-4] or "document"
+                elif "." in uploaded_pin_name:
+                    parsed_base = uploaded_pin_name.rsplit(".", 1)[0] or "document"
+                else:
+                    parsed_base = uploaded_pin_name
+
             if pin_str.startswith("{"):
                 try:
                     parsed_pin = json.loads(pin_str)
-                    if isinstance(parsed_pin, dict) and "pin" in parsed_pin:
-                        pin_str = str(parsed_pin["pin"]).strip()
+                    if isinstance(parsed_pin, dict):
+                        if parsed_pin.get("target_ext"):
+                            parsed_ext = str(parsed_pin["target_ext"])
+                        if parsed_pin.get("base_name"):
+                            parsed_base = str(parsed_pin["base_name"])
+                        pin_str = str(
+                            parsed_pin.get("compact_pin_code")
+                            or parsed_pin.get("pin")
+                            or parsed_pin.get("cyclic_forward_pin")
+                            or ""
+                        ).strip()
                 except json.JSONDecodeError:
                     pass
+
+            # Support composite pin line: "FWD|BWD|CYPHER_FWD|CYPHER_BWD|k=N,M|ext=.txt|name=base"
+            lookup_key = pin_str
+            if "|" in pin_str:
+                parts = [p.strip() for p in pin_str.split("|")]
+                pin_str = parts[0]
+                for part in parts[1:]:
+                    if part.startswith("ext="):
+                        parsed_ext = part[4:].strip() or ".txt"
+                    elif part.startswith("name="):
+                        parsed_base = part[5:].strip() or parsed_base
+
             descriptors = request.get("descriptors")
             if not pin_str:
                 self._send_json(400, {"error": "Provide a Pin (e.g. 298-1 or 882-7) to unfold"})
                 return
 
-            reg_entry = PIN_REGISTRY.get(pin_str)
+            reg_entry = (
+                PIN_REGISTRY.get(raw_pin_input)
+                or PIN_REGISTRY.get(lookup_key)
+                or PIN_REGISTRY.get(pin_str)
+            )
             if descriptors is None and reg_entry and reg_entry.get("descriptors"):
                 descriptors = reg_entry["descriptors"]
 
@@ -169,13 +265,23 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": str(exc)})
                 return
 
-            if reg_entry and "reconstructed_text" in reg_entry:
-                decoded["reconstructed_text"] = reg_entry["reconstructed_text"]
-                decoded["reconstructed_stream_preview"] = reg_entry.get("stream_preview", [])
-                decoded["unfold_count_k"] = reg_entry.get("unfold_count_k", 2)
+            if reg_entry:
+                decoded["reconstructed_text"] = reg_entry.get("reconstructed_text", decoded["reconstructed"])
+                decoded["seven_numbers"] = reg_entry.get("seven_numbers", decoded.get("seven_numbers"))
+                decoded["folds_to_7"] = reg_entry.get("folds_to_7", decoded.get("folds_to_7", 1))
+                decoded["cypher_forward_pin"] = reg_entry.get("cypher_forward_pin")
+                decoded["cypher_backward_pin"] = reg_entry.get("cypher_backward_pin")
+                decoded["cypher_seven_numbers"] = reg_entry.get("cypher_seven_numbers")
+                decoded["cypher_folds_to_7"] = reg_entry.get("cypher_folds_to_7")
+                parsed_ext = reg_entry.get("target_ext", parsed_ext)
+                parsed_base = reg_entry.get("base_name", parsed_base)
             else:
                 decoded["reconstructed_text"] = decoded["reconstructed"]
-                decoded["unfold_count_k"] = 2
+
+            decoded["base_name"] = parsed_base
+            decoded["target_ext"] = parsed_ext
+            decoded["pin_filename"] = f"{parsed_base}.pin"
+            decoded["restore_filename"] = f"{parsed_base}{parsed_ext}"
 
             self._send_json(200, {"decoded": decoded})
             return
@@ -185,30 +291,70 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             return
 
         text = request["text"]
+        raw_filename = str(request.get("filename", "")).strip() or "document.txt"
+        # Strip any trailing .pin first if re-compressing, then split base name and directional target extension
+        if raw_filename.lower().endswith(".pin"):
+            raw_filename = raw_filename[:-4] or "document"
+        if "." in raw_filename:
+            base_name, ext_part = raw_filename.rsplit(".", 1)
+            base_name = base_name or "document"
+            target_ext = f".{ext_part}"
+        else:
+            base_name = raw_filename
+            target_ext = ".txt"
+
+        pin_filename = f"{base_name}.pin"
+        restore_filename = f"{base_name}{target_ext}"
+
         compression = compress_text(text)
         pin12_data = compression["pin_only_12block"]
         fwd_pin = pin12_data.get("forward_pin") or "".join(map(str, compression["pin"]))
         bwd_pin = pin12_data.get("backward_pin") or "".join(map(str, reversed(compression["pin"])))
-        canonical_pin_str = "".join(map(str, compression["pin"]))
+        cypher_fwd_pin = pin12_data.get("cypher_forward_pin") or fwd_pin
+        cypher_bwd_pin = pin12_data.get("cypher_backward_pin") or bwd_pin
+        folds_to_7 = pin12_data.get("folds_to_7", len(compression["fold_log"]))
+        cypher_folds_to_7 = pin12_data.get("cypher_folds_to_7", folds_to_7)
+        seven_numbers = pin12_data.get("seven_numbers") or ""
+        cypher_seven_numbers = pin12_data.get("cypher_seven_numbers") or ""
 
-        # Register in session PIN_REGISTRY so "Unfold by Pin" can also restore full text streams
+        composite_pin = (
+            f"{fwd_pin}|{bwd_pin}|{cypher_fwd_pin}|{cypher_bwd_pin}"
+            f"|k={folds_to_7},{cypher_folds_to_7}|ext={target_ext}|name={base_name}"
+        )
+
         reg_payload = {
             "reconstructed_text": text,
-            "stream_preview": compression["ordered_cypher_values"][:36],
-            "unfold_count_k": pin12_data.get("unfold_count_k", len(compression["fold_log"])),
+            "seven_numbers": seven_numbers,
+            "folds_to_7": folds_to_7,
+            "cypher_forward_pin": cypher_fwd_pin,
+            "cypher_backward_pin": cypher_bwd_pin,
+            "cypher_seven_numbers": cypher_seven_numbers,
+            "cypher_folds_to_7": cypher_folds_to_7,
+            "base_name": base_name,
+            "target_ext": target_ext,
+            "pin_filename": pin_filename,
+            "restore_filename": restore_filename,
             "descriptors": pin12_data.get("signpost_descriptors"),
         }
-        PIN_REGISTRY[fwd_pin] = reg_payload
-        PIN_REGISTRY[bwd_pin] = reg_payload
-        if canonical_pin_str:
-            PIN_REGISTRY[canonical_pin_str] = reg_payload
+        for key in (fwd_pin, bwd_pin, cypher_fwd_pin, cypher_bwd_pin, composite_pin):
+            if key:
+                PIN_REGISTRY[key] = reg_payload
 
-        # ONLY THE PIN IS STORED IN THE ARTIFACT — NO SOURCE TEXT, NO PYRAMID, NO ARRAYS!
+        # ONLY THE PINS + FOLD AMOUNTS + DIRECTIONAL FILE-TYPE CUE ARE SAVED!
         artifact = {
+            "pin_filename": pin_filename,
+            "base_name": base_name,
+            "target_ext": target_ext,
+            "restore_filename": restore_filename,
             "pin": fwd_pin,
             "backward_pin": bwd_pin,
+            "cypher_forward_pin": cypher_fwd_pin,
+            "cypher_backward_pin": cypher_bwd_pin,
+            "folds_to_7": folds_to_7,
+            "cypher_folds_to_7": cypher_folds_to_7,
+            "compact_pin_code": composite_pin,
         }
-        pin_bytes = len(fwd_pin.encode("utf-8"))
+        pin_bytes = len(composite_pin.encode("utf-8"))
         source_bytes = len(text.encode("utf-8"))
         mapped_count = len(compression["sequence"])
 
@@ -217,7 +363,8 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             "source_bytes": source_bytes,
             "pin_bytes": pin_bytes,
             "mapped_characters": mapped_count,
-            "fold_count": len(compression["fold_log"]),
+            "fold_count": folds_to_7,
+            "cypher_fold_count": cypher_folds_to_7,
             "pin_values": len(compression["pin"]),
             "pin": compression["pin"],
             "pin_lr": compression["pin_lr"],
@@ -225,10 +372,21 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             "apex_pairs": compression["apex_pairs"],
             "bidir_verified": compression["bidir_verified"],
             "duality_checks": compression["duality_checks"],
+            "seven_numbers": seven_numbers,
+            "folds_to_7": folds_to_7,
             "chained_apex": pin12_data.get("apex"),
             "chained_forward_pin": fwd_pin,
             "chained_backward_pin": bwd_pin,
-            "chained_unfold_k": pin12_data.get("unfold_count_k"),
+            "cypher_seven_numbers": cypher_seven_numbers,
+            "cypher_folds_to_7": cypher_folds_to_7,
+            "cypher_apex": pin12_data.get("cypher_apex"),
+            "cypher_forward_pin": cypher_fwd_pin,
+            "cypher_backward_pin": cypher_bwd_pin,
+            "pin_filename": pin_filename,
+            "base_name": base_name,
+            "target_ext": target_ext,
+            "restore_filename": restore_filename,
+            "compact_pin_code": composite_pin,
             "chained_reduction_pct": round((1.0 - (pin_bytes / source_bytes)) * 100, 4) if source_bytes else 0.0,
         }
         self._send_json(
@@ -250,16 +408,16 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def log_message(self, format_string: str, *args: object) -> None:
-        print(f"{self.log_date_time_string()} {format_string % args}")
+        print(f"{self.log_date_time_string()} {format_string % args}", flush=True)
 
 
 def main() -> None:
     server = ThreadingHTTPServer((HOST, PORT), WorkbenchHandler)
-    print(f"C3 compression workbench listening on {HOST}:{PORT}")
+    print(f"C3 compression workbench listening on {HOST}:{PORT}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("Stopping workbench")
+        print("Stopping workbench", flush=True)
     finally:
         server.server_close()
 

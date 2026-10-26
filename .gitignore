@@ -7,3 +7,11 @@ venv/
 *.log
 .DS_Store
 alice_in_wonderland.txt
+.vs/
+.vscode/
+.postman/
+postman/
+scratch/
+scratchpad-archive.zip
+buttplay.py
+tomen.py
