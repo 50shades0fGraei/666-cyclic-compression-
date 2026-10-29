@@ -31,14 +31,27 @@ def _pin_key(pin: List[int]) -> str:
 def store_compact(text: str) -> Path:
     """Compress *text* and write a minimal JSON file.
 
-    The stored JSON contains exactly three keys:
+    The stored JSON contains:
     * ``pin`` – the six‑digit identifier.
+    * ``fold_amount`` / ``unfolds_to_complete`` – how many unfolds to complete.
+    * ``cypher_fold_amount`` / ``cypher_unfolds_to_complete`` – cypher order unfolds to complete.
     * ``cipher_order`` – the ordered list of cipher values.
     * ``counts`` – the per‑cipher bucket character lists needed for reconstruction.
     """
     result = compress_text(text)
+    pin12 = result.get("pin_only_12block", {})
+    folds = int(result.get("fold_amount") or pin12.get("folds_to_7") or len(result.get("fold_log", [])))
+    cypher_folds = int(result.get("cypher_fold_amount") or pin12.get("cypher_folds_to_7") or folds)
     payload = {
         "pin": result["pin"],
+        "forward_pin": pin12.get("forward_pin"),
+        "backward_pin": pin12.get("backward_pin"),
+        "cypher_forward_pin": pin12.get("cypher_forward_pin"),
+        "cypher_backward_pin": pin12.get("cypher_backward_pin"),
+        "fold_amount": folds,
+        "unfolds_to_complete": folds,
+        "cypher_fold_amount": cypher_folds,
+        "cypher_unfolds_to_complete": cypher_folds,
         "cipher_order": result["cipher_order"],
         "counts": result["counts"],
     }

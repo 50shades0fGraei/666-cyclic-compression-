@@ -214,13 +214,34 @@ class CycleCompressorTests(unittest.TestCase):
         comp_data = json.loads(body)
         self.assertEqual(comp_data["artifact"]["pin_filename"], "alice.pin")
         self.assertEqual(comp_data["artifact"]["restore_filename"], "alice.txt")
+        self.assertGreaterEqual(comp_data["artifact"]["fold_amount"], 1)
+        self.assertGreaterEqual(comp_data["artifact"]["unfolds_to_complete"], 1)
+        self.assertGreaterEqual(comp_data["artifact"]["cypher_fold_amount"], 1)
+        self.assertGreaterEqual(comp_data["artifact"]["cypher_unfolds_to_complete"], 1)
         compact_code = comp_data["artifact"]["compact_pin_code"]
+        self.assertIn("|folds=", compact_code)
+        self.assertIn("|unfolds=", compact_code)
 
         status, body = invoke("POST", "/api/unfold_pin", {"pin": compact_code, "pin_filename": "alice.pin"})
         self.assertEqual(status, 200)
         unfold_data = json.loads(body)
         self.assertEqual(unfold_data["decoded"]["reconstructed_text"], "Alice was beginning")
         self.assertEqual(unfold_data["decoded"]["restore_filename"], "alice.txt")
+        self.assertEqual(
+            unfold_data["decoded"]["unfolds_to_complete"],
+            comp_data["artifact"]["unfolds_to_complete"],
+        )
+        self.assertEqual(
+            unfold_data["decoded"]["cypher_unfolds_to_complete"],
+            comp_data["artifact"]["cypher_unfolds_to_complete"],
+        )
+
+        # Verify standalone composite pin decoding parses folds/unfolds without session cache
+        standalone_dec = decode_pin("298-1|882-7|775-1|577-2|folds=4,3|unfolds=4,3|ext=.txt|name=demo")
+        self.assertEqual(standalone_dec["unfolds_to_complete"], 4)
+        self.assertEqual(standalone_dec["fold_amount"], 4)
+        self.assertEqual(standalone_dec["cypher_unfolds_to_complete"], 3)
+        self.assertEqual(standalone_dec["cypher_fold_amount"], 3)
 
 
 if __name__ == "__main__":

@@ -181,7 +181,7 @@ footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 1
             <div class="pin-values">
               <button class="pin-badge" id="btn-fwd-pin" type="button">Cyclic Fwd: <span id="b12-fwd-pin">298-1</span></button>
               <button class="pin-badge" id="btn-bwd-pin" type="button">Cyclic Bwd: <span id="b12-bwd-pin">882-7</span></button>
-              <span class="minor">Folds to 7: <strong id="b12-k-badge">1</strong></span>
+              <span class="minor">Folds / Unfolds to Complete: <strong id="b12-k-badge">1</strong></span>
             </div>
           </div>
 
@@ -190,12 +190,14 @@ footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 1
             <div class="pin-values">
               <button class="pin-badge" id="btn-cypher-fwd-pin" type="button">Cypher Fwd: <span id="b12-cypher-fwd-pin">—</span></button>
               <button class="pin-badge" id="btn-cypher-bwd-pin" type="button">Cypher Bwd: <span id="b12-cypher-bwd-pin">—</span></button>
-              <span class="minor">Cypher Folds to 7: <strong id="b12-cypher-k-badge">1</strong></span>
+              <span class="minor">Cypher Folds / Unfolds to Complete: <strong id="b12-cypher-k-badge">1</strong></span>
+              <button class="quiet-button" id="download-b12-pin" type="button" style="min-height: 28px; padding: 0 9px; font-size: 11px;">Download .pin</button>
             </div>
           </div>
 
           <div class="stream-box" id="decode-trace-box" style="margin-bottom: 0;">
             <div><strong>Unfolded Continuous String:</strong> <span id="b12-reconstructed" style="color: var(--green); font-weight: 700;">—</span> <span id="b12-lossless-badge"></span></div>
+            <div id="b12-pin-file-line" class="minor" style="margin-top: 4px; color: var(--green); font-weight: 600;"></div>
             <div id="b12-unfold-details" class="minor" style="margin-top: 4px;"></div>
             <div id="b12-trisum-options" class="minor" style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line);"></div>
           </div>
@@ -210,8 +212,10 @@ footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 1
         <div class="panel-head">
           <h2 id="source-heading">Continuous source text stream</h2>
           <div class="input-actions">
-            <input class="hidden-input" id="file-input" type="file" accept=".txt,text/plain">
-            <button class="quiet-button" id="open-file" type="button">Open .txt</button>
+            <input class="hidden-input" id="file-input" type="file" accept=".txt,.json,.html,.htm,.csv,.md,.xml,.jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.webm,.avi,.mkv,.m4v,.3gp,text/*,image/*,video/*,application/json">
+            <input class="hidden-input" id="folder-input" type="file" webkitdirectory directory multiple>
+            <button class="quiet-button" id="open-file" type="button">Open File</button>
+            <button class="quiet-button" id="open-folder" type="button">Load Folder</button>
             <button class="text-button" id="load-sample" type="button">Load sample</button>
           </div>
         </div>
@@ -232,11 +236,21 @@ footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 1
           <div class="stream-box" id="main-unfold-result-box" hidden style="margin-top: 10px; margin-bottom: 0;">
             <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
               <div><strong>Unfolded from <span id="unfolded-pin-label">—</span>:</strong> <span id="unfolded-status-badge" style="color: var(--green); font-weight: 700;">✅ LOSSLESS</span></div>
-              <button class="quiet-button" id="download-restored-file" type="button" style="padding: 4px 10px;">Save Restored File</button>
+              <div class="button-row">
+                <button class="primary-button" id="save-restored-folder-tree" type="button" hidden style="min-height: 28px; padding: 0 10px; font-size: 11px;">Download Restored Folder Tree</button>
+                <button class="quiet-button" id="download-restored-file" type="button" style="padding: 4px 10px;">Save Restored File</button>
+              </div>
             </div>
             <div id="unfolded-file-cue" class="minor" style="margin-top: 4px; color: var(--gold); font-weight: 700;"></div>
             <div id="unfolded-trace-summary" class="minor" style="margin-top: 4px;"></div>
-            <div id="unfolded-text-preview" style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); max-height: 110px; overflow: auto;"></div>
+            <div id="unfolded-text-preview" style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); max-height: 180px; overflow: auto;"></div>
+            <div id="unfolded-separated-files-container" hidden style="margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
+                <strong style="color: var(--gold); font-size: 12px;">Separated Files (<span id="separated-files-count">0</span> items in exact folder order)</strong>
+                <span class="minor" style="font-size: 11px;">Each section unfolded into its regular file and directory</span>
+              </div>
+              <div id="unfolded-separated-files-list" class="fold-steps" style="max-height: 220px; overflow-y: auto;"></div>
+            </div>
           </div>
         </div>
         <p class="status" id="status" role="status" aria-live="polite"></p>
@@ -269,6 +283,21 @@ footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 1
             <p class="output-label">3. Pin File (<span id="pin-filename-badge">document.pin</span>) &amp; Directional Cue (<span id="pin-byte-size">—</span>)</p>
             <div class="fold-step-values" id="stream-compact-pin-code" style="font-weight: 700; color: var(--green);">—</div>
             <div class="minor" id="pin-directional-cue" style="margin-top: 4px;"></div>
+            <div class="pin-values" id="single-4var-unfold-row" style="margin-top: 8px;"></div>
+          </div>
+
+          <div class="pin-box gold" id="folder-compilation-box" hidden style="margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+              <p class="output-label" style="margin: 0;">4. Folder Pin Compilation (<span id="folder-compilation-name">folder.pin</span> · <span id="folder-section-count">0 sections</span>)</p>
+              <div class="button-row">
+                <button class="primary-button" id="unfold-and-save-folder-tree" type="button" style="min-height: 28px; padding: 0 10px; font-size: 11px;">Unfold &amp; Download Regular Folder Tree</button>
+                <button class="quiet-button" id="unfold-all-folder-sections" type="button" style="min-height: 28px; padding: 0 9px; font-size: 11px;">Unfold All Sections</button>
+                <button class="quiet-button" id="download-compiled-folder-pin" type="button" style="min-height: 28px; padding: 0 9px; font-size: 11px;">Download Compiled .pin</button>
+                <button class="quiet-button" id="save-pin-folder-tree" type="button" style="min-height: 28px; padding: 0 9px; font-size: 11px;">Download .pin Folder Tree</button>
+              </div>
+            </div>
+            <div class="minor" id="folder-master-summary" style="margin-bottom: 8px;"></div>
+            <div class="fold-steps" id="folder-sections-list" style="max-height: 320px;"></div>
           </div>
 
           <p class="output-label">Ordered numeric stream · first 24</p>
@@ -291,14 +320,204 @@ footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 1
 <script>
 const source = document.getElementById('source-text');
 const fileInput = document.getElementById('file-input');
+const folderInput = document.getElementById('folder-input');
 const runButton = document.getElementById('run-fold');
 const block12Input = document.getElementById('block12-input');
 const pin12DecodeInput = document.getElementById('pin12-decode-input');
 let latestArtifact = null;
 let latestBlockDescriptors = null;
+let latestBlockCompactPin = '';
 let currentSourceFileName = 'document.txt';
 let latestUnfoldedFilename = 'document.txt';
 let latestUnfoldedText = '';
+let latestUnfoldedBinaryBytes = null;
+let latestUnfoldedMime = '';
+let loadedFolderEntries = [];
+let compiledFolderSections = [];
+let currentFolderName = 'profile_folder';
+
+// Raw binary vault + 666 Cyclic Raw Format codec for .jpg / image / video files
+const RAW_BINARY_VAULT = new Map();
+const RAW_666_ALPHABET = 'qwertyuiopasdfgh'; // Maps 0..15 nibbles directly onto the 142857 keyboard cycle
+const RAW_666_LOOKUP = Object.fromEntries(Array.from(RAW_666_ALPHABET).map((ch, idx) => [ch, idx]));
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic']);
+const VIDEO_EXTS = new Set(['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v', '.3gp', '.ogv']);
+const AUDIO_EXTS = new Set(['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac']);
+const MIME_BY_EXT = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.mp4': 'video/mp4',
+  '.mov': 'video/quicktime',
+  '.webm': 'video/webm',
+  '.avi': 'video/x-msvideo',
+  '.mkv': 'video/x-matroska',
+  '.m4v': 'video/x-m4v',
+  '.3gp': 'video/3gpp',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.m4a': 'audio/mp4',
+};
+
+function isRawMediaExt(ext) {
+  const e = (ext || '').toLowerCase();
+  return IMAGE_EXTS.has(e) || VIDEO_EXTS.has(e) || AUDIO_EXTS.has(e);
+}
+
+function getMimeForExt(ext, fallback = 'application/octet-stream') {
+  return MIME_BY_EXT[(ext || '').toLowerCase()] || fallback;
+}
+
+function registerRawBinaryVault(bytes, names) {
+  if (!(bytes instanceof Uint8Array) || bytes.length === 0) return;
+  for (const n of names) {
+    if (!n) continue;
+    const str = String(n).trim();
+    if (!str) continue;
+    RAW_BINARY_VAULT.set(str, bytes);
+    const norm = str.replace(/\\/g, '/');
+    RAW_BINARY_VAULT.set(norm, bytes);
+    const base = norm.split('/').pop();
+    if (base) RAW_BINARY_VAULT.set(base, bytes);
+    const cleanLeading = norm.replace(/^\/+/, '');
+    RAW_BINARY_VAULT.set(cleanLeading, bytes);
+    if (currentFolderName && cleanLeading.startsWith(`${currentFolderName}/`)) {
+      RAW_BINARY_VAULT.set(cleanLeading.slice(currentFolderName.length + 1), bytes);
+    }
+  }
+}
+
+function uint8ToBase64(bytes) {
+  let binary = '';
+  const len = bytes.byteLength;
+  const chunkSize = 0x8000; // 32 KB chunk to safely avoid call stack limits on large files
+  for (let i = 0; i < len; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, len));
+    binary += String.fromCharCode.apply(null, chunk);
+  }
+  return btoa(binary);
+}
+
+function base64ToUint8(b64) {
+  const cleanB64 = String(b64 || '').replace(/[^A-Za-z0-9+/=]/g, '');
+  const binStr = atob(cleanB64);
+  const len = binStr.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binStr.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function encodeBytesToRaw666Stream(uint8Bytes, ext, fileName) {
+  const totalLen = uint8Bytes.length;
+  // Convert full binary bytes to base64 so 100% of the original image/video bytes are preserved without ANY loss or subsampling
+  const b64Data = uint8ToBase64(uint8Bytes);
+  return `rawformat ${ext} ${totalLen} ${fileName} base64\n${b64Data}`;
+}
+
+function decodeRaw666StreamToBytes(rawText, pinFile, restoreFile, compactCode) {
+  // 1. Try finding in RAW_BINARY_VAULT using all possible keys and normalized variants
+  const candidateKeys = [
+    compactCode,
+    restoreFile,
+    pinFile,
+  ];
+  if (restoreFile) {
+    const normR = restoreFile.replace(/\\/g, '/');
+    candidateKeys.push(normR, normR.split('/').pop(), normR.replace(/^\/+/, ''));
+    if (currentFolderName && normR.startsWith(`${currentFolderName}/`)) {
+      candidateKeys.push(normR.slice(currentFolderName.length + 1));
+    }
+  }
+  if (pinFile) {
+    const normP = pinFile.replace(/\\/g, '/');
+    candidateKeys.push(normP, normP.split('/').pop(), normP.replace(/^\/+/, ''));
+    if (currentFolderName && normP.startsWith(`${currentFolderName}/`)) {
+      candidateKeys.push(normP.slice(currentFolderName.length + 1));
+    }
+  }
+  for (const k of candidateKeys) {
+    if (k && RAW_BINARY_VAULT.has(k)) {
+      const v = RAW_BINARY_VAULT.get(k);
+      if (v instanceof Uint8Array && v.length > 0) {
+        return v;
+      }
+    }
+  }
+
+  // 2. Decode from rawText stream if not found in vault
+  if (!rawText || !rawText.startsWith('rawformat ')) return null;
+  const nlIdx = rawText.indexOf('\n');
+  if (nlIdx < 0) return null;
+  const header = rawText.slice(0, nlIdx);
+  const body = rawText.slice(nlIdx + 1).trim();
+
+  // If encoded in base64:
+  if (header.includes('base64')) {
+    try {
+      const decoded = base64ToUint8(body);
+      if (decoded && decoded.length > 0) return decoded;
+    } catch (_) {
+      // Fallback to nibble decode
+    }
+  }
+
+  // If encoded in 16-letter nibbles (qwertyuiopasdfgh):
+  try {
+    const byteLen = Math.floor(body.length / 2);
+    const out = new Uint8Array(byteLen);
+    for (let i = 0; i < byteLen; i++) {
+      const hi = RAW_666_LOOKUP[body[i * 2]] ?? 0;
+      const lo = RAW_666_LOOKUP[body[i * 2 + 1]] ?? 0;
+      out[i] = (hi << 4) | lo;
+    }
+    return out;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function readFileAsCyclicInput(file) {
+  const dotIdx = file.name.lastIndexOf('.');
+  const ext = dotIdx >= 0 ? file.name.slice(dotIdx).toLowerCase() : '.txt';
+  const baseName = dotIdx > 0 ? file.name.slice(0, dotIdx) : file.name;
+  const pinFileName = `${baseName}.pin`;
+  const restoreFileName = `${baseName}${ext}`;
+
+  if (isRawMediaExt(ext)) {
+    const buf = await file.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    RAW_BINARY_VAULT.set(pinFileName, bytes);
+    RAW_BINARY_VAULT.set(restoreFileName, bytes);
+    RAW_BINARY_VAULT.set(file.name, bytes);
+    const rawStreamText = encodeBytesToRaw666Stream(bytes, ext, file.name);
+    return {
+      isBinaryMedia: true,
+      ext,
+      baseName,
+      pinFileName,
+      restoreFileName,
+      rawBytes: bytes,
+      text: rawStreamText,
+    };
+  }
+
+  const text = await file.text();
+  return {
+    isBinaryMedia: false,
+    ext,
+    baseName,
+    pinFileName,
+    restoreFileName,
+    rawBytes: null,
+    text,
+  };
+}
 
 function formatNumber(value) {
   return new Intl.NumberFormat().format(value);
@@ -332,11 +551,15 @@ function renderBlock12Result(data) {
 
   document.getElementById('b12-fwd-pin').textContent = encoded.forward_pin;
   document.getElementById('b12-bwd-pin').textContent = encoded.backward_pin;
-  document.getElementById('b12-k-badge').textContent = encoded.folds_to_7;
+  document.getElementById('b12-k-badge').textContent = `${encoded.folds_to_7} (${encoded.unfolds_to_complete || encoded.folds_to_7} unfolds)`;
 
   document.getElementById('b12-cypher-fwd-pin').textContent = encoded.cypher_forward_pin;
   document.getElementById('b12-cypher-bwd-pin').textContent = encoded.cypher_backward_pin;
-  document.getElementById('b12-cypher-k-badge').textContent = encoded.cypher_folds_to_7;
+  document.getElementById('b12-cypher-k-badge').textContent = `${encoded.cypher_folds_to_7} (${encoded.cypher_unfolds_to_complete || encoded.cypher_folds_to_7} unfolds)`;
+
+  latestBlockCompactPin = encoded.compact_pin_code ||
+    `${encoded.forward_pin}|${encoded.backward_pin}|${encoded.cypher_forward_pin}|${encoded.cypher_backward_pin}|folds=${encoded.folds_to_7},${encoded.cypher_folds_to_7}|unfolds=${encoded.unfolds_to_complete || encoded.folds_to_7},${encoded.cypher_unfolds_to_complete || encoded.cypher_folds_to_7}`;
+  document.getElementById('b12-pin-file-line').textContent = `Pin Output File: ${latestBlockCompactPin}`;
 
   pin12DecodeInput.value = encoded.forward_pin;
 
@@ -360,8 +583,9 @@ function renderBlock12Result(data) {
 function renderDecodedPin(decoded) {
   document.getElementById('b12-reconstructed').textContent = decoded.reconstructed_text || decoded.reconstructed;
   document.getElementById('b12-lossless-badge').textContent = decoded.lossless ? '✅ LOSSLESS' : '⚠ MISMATCH';
+  const unfoldsNeeded = decoded.unfolds_to_complete || decoded.fold_amount || decoded.folds_to_7 || 1;
   document.getElementById('b12-unfold-details').textContent =
-    `Pin ${decoded.pin} (${decoded.direction}) → Apex ${decoded.apex} → 7-Numbers ${decoded.seven_numbers || decoded.consolidated} (${decoded.folds_to_7 || 1} sum pass(es)) → Expanded (27=3, 54=6, d×9=repeat) ${decoded.expanded} → Reconstructed ${decoded.reconstructed}`;
+    `Pin ${decoded.pin} (${decoded.direction}) · Unfolds to Complete: ${unfoldsNeeded} → Apex ${decoded.apex} → 7-Numbers ${decoded.seven_numbers || decoded.consolidated} (${decoded.folds_to_7 || 1} sum pass(es)) → Expanded (27=3, 54=6, d×9=repeat) ${decoded.expanded} → Reconstructed ${decoded.reconstructed}`;
 
   const triBox = document.getElementById('b12-trisum-options');
   const origins = decoded.nine_origins || [];
@@ -460,10 +684,10 @@ function renderResult(response) {
   }
 
   document.getElementById('stream-cyclic-pins').textContent =
-    `Forward Pin: ${metrics.chained_forward_pin}  |  Backward Pin: ${metrics.chained_backward_pin}  |  7-Numbers: ${metrics.seven_numbers}  |  Apex: ${metrics.chained_apex}  |  Folds to 7: ${metrics.folds_to_7}`;
+    `Forward Pin: ${metrics.chained_forward_pin}  |  Backward Pin: ${metrics.chained_backward_pin}  |  7-Numbers: ${metrics.seven_numbers}  |  Apex: ${metrics.chained_apex}  |  Folds to 7: ${metrics.folds_to_7}  |  Unfolds to Complete: ${metrics.unfolds_to_complete || metrics.folds_to_7}`;
 
   document.getElementById('stream-cypher-pins').textContent =
-    `Cypher Forward Pin: ${metrics.cypher_forward_pin}  |  Cypher Backward Pin: ${metrics.cypher_backward_pin}  |  Cypher 7-Numbers: ${metrics.cypher_seven_numbers}  |  Apex: ${metrics.cypher_apex}  |  Cypher Folds to 7: ${metrics.cypher_folds_to_7}`;
+    `Cypher Forward Pin: ${metrics.cypher_forward_pin}  |  Cypher Backward Pin: ${metrics.cypher_backward_pin}  |  Cypher 7-Numbers: ${metrics.cypher_seven_numbers}  |  Apex: ${metrics.cypher_apex}  |  Cypher Folds to 7: ${metrics.cypher_folds_to_7}  |  Cypher Unfolds to Complete: ${metrics.cypher_unfolds_to_complete || metrics.cypher_folds_to_7}`;
 
   const pinFileName = metrics.pin_filename || 'document.pin';
   const restoreFileName = metrics.restore_filename || 'document.txt';
@@ -471,69 +695,734 @@ function renderResult(response) {
   const pinBytes = metrics.pin_bytes || 0;
   const srcBytes = metrics.source_bytes || 0;
   const redPct = metrics.chained_reduction_pct;
+  const unfoldsToComplete = metrics.unfolds_to_complete || metrics.folds_to_7;
+  const cypherUnfoldsToComplete = metrics.cypher_unfolds_to_complete || metrics.cypher_folds_to_7;
 
   document.getElementById('pin-filename-badge').textContent = pinFileName;
   document.getElementById('download-pin-txt').textContent = `Download ${pinFileName}`;
   document.getElementById('pin-byte-size').textContent = `${pinBytes} bytes saved vs ${formatNumber(srcBytes)} bytes input (${redPct}% reduction)`;
   document.getElementById('stream-compact-pin-code').textContent = metrics.compact_pin_code || metrics.chained_forward_pin;
   document.getElementById('pin-directional-cue').textContent =
-    `Directional Cue: ${pinFileName} → sets aside "${targetExt}" so unfolding turns back into ${restoreFileName}`;
+    `Unfolds to Complete: ${unfoldsToComplete} (Cyclic) / ${cypherUnfoldsToComplete} (Cypher) · Directional Cue: ${pinFileName} → sets aside "${targetExt}" so unfolding turns back into ${restoreFileName}`;
+
+  const varRow = document.getElementById('single-4var-unfold-row');
+  varRow.replaceChildren();
+  const fourVars = [
+    { label: '1. Cyclic Fwd', pin: metrics.chained_forward_pin, folds: unfoldsToComplete },
+    { label: '2. Cyclic Bwd', pin: metrics.chained_backward_pin, folds: unfoldsToComplete },
+    { label: '3. Cypher Fwd', pin: metrics.cypher_forward_pin, folds: cypherUnfoldsToComplete },
+    { label: '4. Cypher Bwd', pin: metrics.cypher_backward_pin, folds: cypherUnfoldsToComplete },
+  ];
+  for (const v of fourVars) {
+    if (!v.pin) continue;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pin-badge';
+    btn.textContent = `Unfold ${v.label}: ${v.pin} (k=${v.folds})`;
+    btn.addEventListener('click', () => {
+      runVariableUnfold(v.label, v.pin, metrics.compact_pin_code, pinFileName);
+    });
+    varRow.appendChild(btn);
+  }
+  const all4Btn = document.createElement('button');
+  all4Btn.type = 'button';
+  all4Btn.className = 'quiet-button';
+  all4Btn.style.minHeight = '28px';
+  all4Btn.style.padding = '0 9px';
+  all4Btn.style.fontSize = '11px';
+  all4Btn.textContent = 'Unfold All 4 Variables';
+  all4Btn.addEventListener('click', () => {
+    runAllFourVariablesUnfold({
+      pin_filename: pinFileName,
+      restore_filename: restoreFileName,
+      target_ext: targetExt,
+      pin: metrics.chained_forward_pin,
+      backward_pin: metrics.chained_backward_pin,
+      cypher_forward_pin: metrics.cypher_forward_pin,
+      cypher_backward_pin: metrics.cypher_backward_pin,
+      fold_amount: unfoldsToComplete,
+      cypher_fold_amount: cypherUnfoldsToComplete,
+      compact_pin_code: metrics.compact_pin_code,
+    });
+  });
+  varRow.appendChild(all4Btn);
 
   if (metrics.compact_pin_code) {
     document.getElementById('main-unfold-pin-input').value = metrics.compact_pin_code;
   }
 }
 
-async function runMainUnfoldByPin(pinOverride = null, uploadedPinFilename = '') {
+function downloadTextBlob(content, filename, mime = 'text/plain;charset=utf-8') {
+  const blob = new Blob([content], { type: mime });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function downloadBinaryBytes(uint8Bytes, filename, mime = 'application/octet-stream') {
+  const blob = new Blob([uint8Bytes], { type: mime });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+}
+
+// Pure-JS CRC32 & Store-mode ZIP Folder Builder (no external dependencies)
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) {
+      c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    table[i] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32Bytes(uint8) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < uint8.length; i++) {
+    crc = CRC32_TABLE[(crc ^ uint8[i]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function buildZipFolderBlob(entries) {
+  // entries: Array<{ path: string, bytes: Uint8Array }>
+  const encoder = new TextEncoder();
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+
+  for (const item of entries) {
+    const cleanPath = String(item.path || 'file.txt').replace(/^\/+/, '').replace(/\\/g, '/');
+    const nameBytes = encoder.encode(cleanPath);
+    const dataBytes = item.bytes instanceof Uint8Array ? item.bytes : encoder.encode(String(item.bytes || ''));
+    const crc = crc32Bytes(dataBytes);
+    const size = dataBytes.length;
+
+    const localHeader = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(localHeader.buffer);
+    lv.setUint32(0, 0x04034b50, true); // Local file header signature
+    lv.setUint16(4, 20, true);         // Version needed (2.0)
+    lv.setUint16(6, 0x0800, true);     // UTF-8 filename flag
+    lv.setUint16(8, 0, true);          // Store (0 = uncompressed)
+    lv.setUint16(10, 0, true);         // Mod time
+    lv.setUint16(12, 0x5521, true);    // Mod date
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true);
+    lv.setUint32(22, size, true);
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true);
+    localHeader.set(nameBytes, 30);
+
+    const centralHeader = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(centralHeader.buffer);
+    cv.setUint32(0, 0x02014b50, true); // Central directory signature
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0x0800, true);     // UTF-8 flag
+    cv.setUint16(10, 0, true);         // Store
+    cv.setUint16(12, 0, true);
+    cv.setUint16(14, 0x5521, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true);
+    cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true);
+    cv.setUint16(36, 0, true);
+    cv.setUint32(38, 0, true);
+    cv.setUint32(42, offset, true);
+    centralHeader.set(nameBytes, 46);
+
+    localParts.push(localHeader, dataBytes);
+    centralParts.push(centralHeader);
+    offset += localHeader.length + dataBytes.length;
+  }
+
+  let centralSize = 0;
+  for (const cp of centralParts) centralSize += cp.length;
+
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true); // End of central directory signature
+  ev.setUint16(4, 0, true);
+  ev.setUint16(6, 0, true);
+  ev.setUint16(8, entries.length, true);
+  ev.setUint16(10, entries.length, true);
+  ev.setUint32(12, centralSize, true);
+  ev.setUint32(16, offset, true);
+  ev.setUint16(20, 0, true);
+
+  return new Blob([...localParts, ...centralParts, eocd], { type: 'application/zip' });
+}
+
+function downloadFolderAsZip(entries, zipFileName) {
+  const blob = buildZipFolderBlob(entries);
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = zipFileName;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+}
+
+async function saveFolderEntriesToDisk(rootFolderName, entries, fallbackZipName) {
+  if (typeof window.showDirectoryPicker !== 'function') {
+    downloadFolderAsZip(entries, fallbackZipName);
+    showStatus(`Browser does not support direct directory writing — downloaded ${fallbackZipName} instead.`);
+    return;
+  }
+  try {
+    const parentHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    const rootHandle = await parentHandle.getDirectoryHandle(rootFolderName, { create: true });
+    for (let i = 0; i < entries.length; i++) {
+      const item = entries[i];
+      const cleanPath = String(item.path || 'file.txt').replace(/^\/+/, '').replace(/\\/g, '/');
+      let parts = cleanPath.split('/').filter(Boolean);
+      if (parts.length > 1 && parts[0] === rootFolderName) {
+        parts = parts.slice(1);
+      }
+      let dirHandle = rootHandle;
+      for (let d = 0; d < parts.length - 1; d++) {
+        dirHandle = await dirHandle.getDirectoryHandle(parts[d], { create: true });
+      }
+      const fileName = parts[parts.length - 1] || `section_${i + 1}.txt`;
+      const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(item.bytes);
+      await writable.close();
+    }
+    showStatus(`Saved folder "${rootFolderName}" (${entries.length} files in exact folder order) directly to disk!`);
+  } catch (err) {
+    if (err && err.name === 'AbortError') return;
+    showStatus(err instanceof Error ? err.message : 'Saving folder to disk failed.', true);
+  }
+}
+
+let latestRestoredFolderEntries = [];
+let latestRestoredFolderRootName = 'restored_folder';
+
+function toPinRelPath(relPath) {
+  const norm = String(relPath || 'document.txt').replace(/\\/g, '/');
+  const lastSlash = norm.lastIndexOf('/');
+  const dirPart = lastSlash >= 0 ? norm.slice(0, lastSlash + 1) : '';
+  const namePart = lastSlash >= 0 ? norm.slice(lastSlash + 1) : norm;
+  if (namePart.toLowerCase().endswith ? namePart.toLowerCase().endsWith('.pin') : namePart.toLowerCase().slice(-4) === '.pin') {
+    return `${dirPart}${namePart}`;
+  }
+  const dotIdx = namePart.lastIndexOf('.');
+  const stem = dotIdx > 0 ? namePart.slice(0, dotIdx) : namePart;
+  return `${dirPart}${stem}.pin`;
+}
+
+function buildPinFolderEntries() {
+  const encoder = new TextEncoder();
+  const rootName = `${currentFolderName}_pins`;
+  const entries = [];
+  if (compiledFolderSections.length > 0) {
+    const allLines = compiledFolderSections.map(s => s.artifact.compact_pin_code).join('\n') + '\n';
+    entries.push({
+      path: `${rootName}/${currentFolderName}.pin`,
+      bytes: encoder.encode(allLines),
+    });
+  }
+  for (const s of compiledFolderSections) {
+    let subRel = String(s.relPath || s.fileName).replace(/\\/g, '/');
+    if (subRel.startsWith(`${currentFolderName}/`)) {
+      subRel = subRel.slice(currentFolderName.length + 1);
+    }
+    const pinRel = toPinRelPath(subRel);
+    entries.push({
+      path: `${rootName}/${pinRel}`,
+      bytes: encoder.encode(`${s.artifact.compact_pin_code}\n`),
+    });
+  }
+  return { rootName, entries };
+}
+
+function renderUnfoldedPreviewAndState(fullText, pinFile, restoreFile, targetExt, compactCode = '') {
+  const previewEl = document.getElementById('unfolded-text-preview');
+  previewEl.replaceChildren();
+  const extLower = (targetExt || '').toLowerCase();
+
+  if (isRawMediaExt(extLower) || (fullText && fullText.startsWith('rawformat '))) {
+    const restoredBytes = decodeRaw666StreamToBytes(fullText, pinFile, restoreFile, compactCode);
+    const mime = getMimeForExt(extLower);
+    latestUnfoldedBinaryBytes = restoredBytes;
+    latestUnfoldedMime = mime;
+    latestUnfoldedFilename = restoreFile;
+    latestUnfoldedText = fullText;
+
+    const infoLine = document.createElement('div');
+    infoLine.className = 'minor';
+    infoLine.style.marginBottom = '6px';
+    infoLine.style.color = 'var(--green)';
+    infoLine.style.fontWeight = '700';
+
+    if (restoredBytes && restoredBytes.length > 0) {
+      infoLine.textContent = `Raw Format → 666 Cyclic Unfold → Converted back to ${extLower.toUpperCase()} (${formatNumber(restoredBytes.length)} binary bytes · ${mime})`;
+      previewEl.appendChild(infoLine);
+      const mediaBlob = new Blob([restoredBytes], { type: mime });
+      const mediaUrl = URL.createObjectURL(mediaBlob);
+      if (IMAGE_EXTS.has(extLower)) {
+        const img = document.createElement('img');
+        img.src = mediaUrl;
+        img.alt = restoreFile;
+        img.style.maxHeight = '140px';
+        img.style.maxWidth = '100%';
+        img.style.borderRadius = '4px';
+        img.style.border = '1px solid var(--line)';
+        previewEl.appendChild(img);
+      } else if (VIDEO_EXTS.has(extLower)) {
+        const video = document.createElement('video');
+        video.src = mediaUrl;
+        video.controls = true;
+        video.style.maxHeight = '160px';
+        video.style.maxWidth = '100%';
+        video.style.borderRadius = '4px';
+        previewEl.appendChild(video);
+      } else if (AUDIO_EXTS.has(extLower)) {
+        const audio = document.createElement('audio');
+        audio.src = mediaUrl;
+        audio.controls = true;
+        previewEl.appendChild(audio);
+      }
+      return;
+    }
+  }
+
+  latestUnfoldedBinaryBytes = null;
+  latestUnfoldedMime = 'text/plain;charset=utf-8';
+  latestUnfoldedFilename = restoreFile;
+  latestUnfoldedText = fullText;
+  previewEl.textContent =
+    fullText.length > 600
+      ? `${fullText.slice(0, 600)}… (${formatNumber(fullText.length)} chars restored)`
+      : fullText;
+}
+
+async function runVariableUnfold(variableLabel, variablePin, compactPinCode, pinFilename) {
+  const pinToSend = compactPinCode || variablePin;
+  document.getElementById('main-unfold-pin-input').value = variablePin;
+  await runMainUnfoldByPin(pinToSend, pinFilename, `${variableLabel} (${variablePin})`);
+}
+
+async function runAllFourVariablesUnfold(artifactItem) {
+  const pinFile = artifactItem.pin_filename || 'document.pin';
+  const restoreFile = artifactItem.restore_filename || 'document.txt';
+  const targetExt = artifactItem.target_ext || '.txt';
+  const cycFolds = artifactItem.unfolds_to_complete || artifactItem.fold_amount || artifactItem.folds_to_7 || 1;
+  const cypFolds = artifactItem.cypher_unfolds_to_complete || artifactItem.cypher_fold_amount || artifactItem.cypher_folds_to_7 || cycFolds;
+
+  const varsToUnfold = [
+    { key: 'forward_pin', name: 'Cyclic Forward Pin', pin: artifactItem.pin || artifactItem.forward_pin, folds: cycFolds },
+    { key: 'backward_pin', name: 'Cyclic Backward Pin', pin: artifactItem.backward_pin, folds: cycFolds },
+    { key: 'cypher_forward_pin', name: 'Cypher Forward Pin', pin: artifactItem.cypher_forward_pin, folds: cypFolds },
+    { key: 'cypher_backward_pin', name: 'Cypher Backward Pin', pin: artifactItem.cypher_backward_pin, folds: cypFolds },
+  ];
+
+  showStatus(`Unfolding all 4 PIN variables for ${pinFile}…`);
+  try {
+    const varSummaries = [];
+    let restoredText = '';
+    for (const v of varsToUnfold) {
+      if (!v.pin) continue;
+      const queryPin = artifactItem.compact_pin_code || v.pin;
+      const response = await fetch('/api/unfold_pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: queryPin, pin_filename: pinFile }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || `Unfold failed for ${v.name}`);
+      const dec = result.decoded;
+      if (!restoredText && (dec.reconstructed_text || dec.reconstructed)) {
+        restoredText = dec.reconstructed_text || dec.reconstructed;
+      }
+      varSummaries.push(`${v.name}: ${v.pin} (unfolds=${v.folds}) ✅`);
+    }
+
+    const box = document.getElementById('main-unfold-result-box');
+    box.hidden = false;
+    document.getElementById('unfolded-pin-label').textContent = `${pinFile} (All 4 PIN Variables Unfolded)`;
+    document.getElementById('download-restored-file').textContent = `Save ${restoreFile}`;
+    document.getElementById('unfolded-file-cue').textContent =
+      `Directional Cue: ${pinFile} → target file type "${targetExt}" → restores as ${restoreFile}`;
+    document.getElementById('unfolded-trace-summary').textContent = varSummaries.join('  ·  ');
+    renderUnfoldedPreviewAndState(restoredText, pinFile, restoreFile, targetExt, artifactItem.compact_pin_code || '');
+    source.value = restoredText;
+    currentSourceFileName = restoreFile;
+    updateInputCounts();
+    showStatus(`Unfolded all 4 variables for ${pinFile} → restored ${restoreFile}.`);
+  } catch (error) {
+    showStatus(error instanceof Error ? error.message : 'Unfolding all 4 variables failed.', true);
+  }
+}
+
+function extractPinLinesFromInput(rawInput) {
+  const lines = String(rawInput || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const result = [];
+  for (const line of lines) {
+    if (line.startsWith('#') && line.includes('[') && line.includes(']')) {
+      const bracketMatch = line.match(/\[(.*?)\]/);
+      if (bracketMatch) {
+        const inner = bracketMatch[1].replace(/\s*\|\s*/g, '|');
+        result.push(inner);
+        continue;
+      }
+    }
+    if (line.startsWith('#') || line.startsWith('===') || line.startsWith('---')) continue;
+    if (/^\d+-\d+/.test(line) || line.includes('|ext=') || line.includes('|name=')) {
+      result.push(line);
+    }
+  }
+  return result;
+}
+
+async function runMainUnfoldByPin(pinOverride = null, uploadedPinFilename = '', variableBadgeOverride = '') {
   const pinInput = document.getElementById('main-unfold-pin-input');
-  if (pinOverride) {
+  if (pinOverride && !variableBadgeOverride) {
     pinInput.value = pinOverride;
   }
-  const pinVal = pinInput.value.trim();
+  const pinVal = (pinOverride || pinInput.value).trim();
   if (!pinVal) {
     showStatus('Enter a Pin to unfold.', true);
     return;
   }
-  showStatus(`Unfolding Pin ${pinVal} via Decode(P, L)…`);
+
+  // Support multi-line compiled folder .pin files or unfold reports (preserves exact folder order)
+  const extractedLines = extractPinLinesFromInput(pinVal);
+  if (extractedLines.length > 1) {
+    await unfoldCompiledPinLines(extractedLines, uploadedPinFilename || 'compiled_folder.pin');
+    return;
+  }
+
+  const singlePinToSend = extractedLines[0] || pinVal;
+  showStatus(`Unfolding Pin ${singlePinToSend} via Decode(P, L)…`);
   try {
     const response = await fetch('/api/unfold_pin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin: pinVal, pin_filename: uploadedPinFilename }),
+      body: JSON.stringify({ pin: singlePinToSend, pin_filename: uploadedPinFilename }),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || `Unfold failed (${response.status})`);
     const dec = result.decoded;
     const box = document.getElementById('main-unfold-result-box');
     box.hidden = false;
+    const saveTreeBtn = document.getElementById('save-restored-folder-tree');
+    if (saveTreeBtn) saveTreeBtn.hidden = true;
+    const sepContainer = document.getElementById('unfolded-separated-files-container');
+    if (sepContainer) sepContainer.hidden = true;
+
     const pinFile = dec.pin_filename || 'document.pin';
     const restoreFile = dec.restore_filename || 'document.txt';
     const targetExt = dec.target_ext || '.txt';
-    latestUnfoldedFilename = restoreFile;
-    document.getElementById('unfolded-pin-label').textContent = `${pinFile} (${dec.pin} · ${dec.direction})`;
+    const labelText = variableBadgeOverride
+      ? `${pinFile} · ${variableBadgeOverride}`
+      : `${pinFile} (${dec.pin} · ${dec.direction})`;
+    document.getElementById('unfolded-pin-label').textContent = labelText;
     document.getElementById('download-restored-file').textContent = `Save ${restoreFile}`;
+    const unfoldsCompleted = dec.unfolds_to_complete || dec.fold_amount || dec.folds_to_7 || 1;
+    const cypherUnfoldsCompleted = dec.cypher_unfolds_to_complete || dec.cypher_fold_amount || dec.cypher_folds_to_7 || unfoldsCompleted;
     document.getElementById('unfolded-file-cue').textContent =
-      `Directional Cue: ${pinFile} → target file type "${targetExt}" → restores as ${restoreFile}`;
+      `Unfolds to Complete: ${unfoldsCompleted} (Cyclic) / ${cypherUnfoldsCompleted} (Cypher) · Directional Cue: ${pinFile} → target file type "${targetExt}" → restores as ${restoreFile}`;
     document.getElementById('unfolded-trace-summary').textContent =
-      `Cyclic 7-Numbers: ${dec.seven_numbers || dec.consolidated} (Folds to 7: ${dec.folds_to_7 || 1}) · Cypher Pins: ${dec.cypher_forward_pin || '—'} / ${dec.cypher_backward_pin || '—'} (Cypher Folds to 7: ${dec.cypher_folds_to_7 || 1})`;
+      `1. Cyclic Fwd: ${dec.pin} (k=${unfoldsCompleted}) · 2. Cyclic Bwd: ${dec.backward_pin || '—'} (k=${unfoldsCompleted}) · 3. Cypher Fwd: ${dec.cypher_forward_pin || '—'} (k=${cypherUnfoldsCompleted}) · 4. Cypher Bwd: ${dec.cypher_backward_pin || '—'} (k=${cypherUnfoldsCompleted})`;
     const fullText = dec.reconstructed_text || dec.reconstructed || '';
-    latestUnfoldedText = fullText;
-    document.getElementById('unfolded-text-preview').textContent =
-      fullText.length > 600 ? `${fullText.slice(0, 600)}… (${formatNumber(fullText.length)} chars restored)` : fullText;
+    renderUnfoldedPreviewAndState(fullText, pinFile, restoreFile, targetExt, singlePinToSend);
     source.value = fullText;
     currentSourceFileName = restoreFile;
     updateInputCounts();
-    showStatus(`Unfolded ${pinFile} → restored ${restoreFile} (${formatNumber(fullText.length)} characters).`);
+    showStatus(`Unfolded ${pinFile} → restored ${restoreFile}.`);
   } catch (error) {
     showStatus(error instanceof Error ? error.message : 'Unfold by Pin failed.', true);
+  }
+}
+
+async function unfoldCompiledPinLines(lines, compilationPinName) {
+  showStatus(`Unfolding ${lines.length} compiled section(s) in exact folder order from ${compilationPinName}…`);
+  const restoredParts = [];
+  const sectionSummaries = [];
+  latestRestoredFolderEntries = [];
+  const baseName = compilationPinName.toLowerCase().endsWith('.pin')
+    ? compilationPinName.slice(0, -4)
+    : compilationPinName;
+  let cleanFolderStem = (currentFolderName && currentFolderName !== 'document')
+    ? currentFolderName
+    : (baseName.toLowerCase().endsWith('_pins') ? baseName.slice(0, -5) : baseName);
+  if (cleanFolderStem.toLowerCase().endsWith('.txt') || cleanFolderStem.toLowerCase().endsWith('.pin')) {
+    cleanFolderStem = cleanFolderStem.replace(/\.(txt|pin)$/i, '');
+  }
+  latestRestoredFolderRootName = cleanFolderStem || 'restored_folder';
+
+  try {
+    for (let idx = 0; idx < lines.length; idx++) {
+      const line = lines[idx];
+      const response = await fetch('/api/unfold_pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: line }),
+      });
+      const result = await response.json();
+      if (!response.ok) continue;
+      const dec = result.decoded;
+      const pFile = dec.pin_filename || `section_${idx + 1}.pin`;
+      const rFile = dec.restore_filename || `section_${idx + 1}.txt`;
+      const tExt = (dec.target_ext || '.txt').toLowerCase();
+      const u1 = dec.unfolds_to_complete || dec.fold_amount || 1;
+      const u2 = dec.cypher_unfolds_to_complete || dec.cypher_fold_amount || u1;
+      const rawContent = dec.reconstructed_text || dec.reconstructed || '';
+      
+      let fileBytes;
+      const isMedia = isRawMediaExt(tExt) || rawContent.startsWith('rawformat ');
+      if (isMedia) {
+        const bin = decodeRaw666StreamToBytes(rawContent, pFile, rFile, line);
+        fileBytes = bin || new TextEncoder().encode(rawContent);
+      } else {
+        fileBytes = new TextEncoder().encode(rawContent);
+      }
+
+      const cleanRel = rFile.replace(/^\/+/, '').replace(/\\/g, '/');
+      const fileName = cleanRel.split('/').pop() || rFile;
+
+      latestRestoredFolderEntries.push({
+        path: `${latestRestoredFolderRootName}/${cleanRel}`,
+        relPath: cleanRel,
+        fileName,
+        ext: tExt,
+        bytes: fileBytes,
+        isBinaryMedia: isMedia,
+        pin: dec.pin,
+        pinFilename: pFile,
+      });
+
+      const mediaNote = isMedia ? ` [Raw → ${tExt.toUpperCase()} binary restored]` : '';
+      sectionSummaries.push(
+        `#${idx + 1} ${pFile} → ${cleanRel}${mediaNote} [${dec.pin} | ${dec.backward_pin || '—'} | ${dec.cypher_forward_pin || '—'} | ${dec.cypher_backward_pin || '—'} · unfolds=${u1},${u2}] ✅`
+      );
+      restoredParts.push(`=== #${idx + 1} ${cleanRel} (from ${pFile}) ===\n${rawContent.slice(0, 300)}`);
+    }
+
+    const box = document.getElementById('main-unfold-result-box');
+    box.hidden = false;
+    latestUnfoldedBinaryBytes = null;
+    latestUnfoldedFilename = null;
+    latestUnfoldedText = null;
+    
+    document.getElementById('unfolded-pin-label').textContent = `${compilationPinName} (${sectionSummaries.length} files restored)`;
+    document.getElementById('download-restored-file').textContent = `Save Restored Folder (${sectionSummaries.length} files)`;
+    
+    const saveTreeBtn = document.getElementById('save-restored-folder-tree');
+    if (saveTreeBtn) {
+      saveTreeBtn.hidden = false;
+      saveTreeBtn.textContent = `Open / Save Folder to Disk (${sectionSummaries.length} files)`;
+    }
+
+    document.getElementById('unfolded-file-cue').textContent =
+      `Restored ${sectionSummaries.length} files into folder "${latestRestoredFolderRootName}" in exact order`;
+    document.getElementById('unfolded-trace-summary').textContent = sectionSummaries.slice(0, 6).join('  ·  ');
+    document.getElementById('unfolded-text-preview').textContent =
+      `Restored folder: ${latestRestoredFolderRootName}/\n` + sectionSummaries.join('\n');
+
+    // Render interactive separated files cards with direct single-file download
+    const sepContainer = document.getElementById('unfolded-separated-files-container');
+    const sepList = document.getElementById('unfolded-separated-files-list');
+    if (sepContainer && sepList) {
+      sepContainer.hidden = false;
+      document.getElementById('separated-files-count').textContent = sectionSummaries.length;
+      sepList.replaceChildren();
+
+      for (let i = 0; i < latestRestoredFolderEntries.length; i++) {
+        const item = latestRestoredFolderEntries[i];
+        const card = document.createElement('div');
+        card.className = 'fold-step';
+        card.style.background = 'var(--white)';
+        card.style.padding = '8px 12px';
+        card.style.display = 'flex';
+        card.style.justifyContent = 'space-between';
+        card.style.alignItems = 'center';
+        card.style.gap = '8px';
+        card.style.flexWrap = 'wrap';
+
+        const info = document.createElement('div');
+        const mediaBadge = item.isBinaryMedia ? ' · <span style="color:var(--gold);font-weight:700;">RAW MEDIA</span>' : '';
+        info.innerHTML = `<strong>#${i + 1} ${item.relPath}</strong> <span class="minor" style="margin-left: 6px;">${item.ext.toUpperCase()} · ${formatNumber(item.bytes.length)} bytes${mediaBadge}</span>`;
+
+        const btnRow = document.createElement('div');
+        btnRow.className = 'button-row';
+        btnRow.style.margin = '0';
+
+        const dlBtn = document.createElement('button');
+        dlBtn.type = 'button';
+        dlBtn.className = 'quiet-button';
+        dlBtn.style.padding = '3px 8px';
+        dlBtn.style.fontSize = '11px';
+        dlBtn.textContent = `Save ${item.fileName}`;
+        dlBtn.addEventListener('click', () => {
+          if (item.isBinaryMedia) {
+            downloadBinaryBytes(item.bytes, item.fileName, getMimeForExt(item.ext));
+          } else {
+            downloadBinaryBytes(item.bytes, item.fileName, 'text/plain;charset=utf-8');
+          }
+        });
+        btnRow.appendChild(dlBtn);
+        card.append(info, btnRow);
+        sepList.appendChild(card);
+      }
+    }
+    
+    showStatus(`Unfolded all ${sectionSummaries.length} files — ready to save and open as regular folder "${latestRestoredFolderRootName}".`);
+  } catch (error) {
+    showStatus(error instanceof Error ? error.message : 'Compiled .pin unfold failed.', true);
+  }
+}
+
+function renderFolderCompilation(folderPinName, masterArtifact, sections) {
+  const folderBox = document.getElementById('folder-compilation-box');
+  folderBox.hidden = false;
+  document.getElementById('folder-compilation-name').textContent = folderPinName;
+  document.getElementById('folder-section-count').textContent = `${sections.length} section(s) in exact folder order`;
+  document.getElementById('download-compiled-folder-pin').textContent = `Download ${folderPinName}`;
+
+  const listEl = document.getElementById('folder-sections-list');
+  listEl.replaceChildren();
+
+  for (let i = 0; i < sections.length; i++) {
+    const sec = sections[i];
+    const art = sec.artifact;
+    const cycFolds = art.unfolds_to_complete || art.fold_amount || 1;
+    const cypFolds = art.cypher_unfolds_to_complete || art.cypher_fold_amount || cycFolds;
+    const rawBadge = sec.isBinaryMedia ? ` · [RAW ${sec.ext.toUpperCase()} → 666 Pin → ${sec.ext.toUpperCase()}]` : '';
+
+    const card = document.createElement('div');
+    card.className = 'fold-step';
+    card.style.background = 'var(--white)';
+
+    const head = document.createElement('div');
+    head.className = 'fold-step-head';
+    head.style.flexWrap = 'wrap';
+    const titleSpan = document.createElement('span');
+    titleSpan.style.fontWeight = '700';
+    titleSpan.style.color = 'var(--green)';
+    titleSpan.textContent = `#${sec.orderIndex} · ${art.pin_filename} → restores ${art.restore_filename}${rawBadge} (${sec.relPath})`;
+    const foldsSpan = document.createElement('span');
+    foldsSpan.className = 'fold-step-checks';
+    foldsSpan.textContent = `Folds/Unfolds: Cyclic=${cycFolds}, Cypher=${cypFolds}`;
+    head.append(titleSpan, foldsSpan);
+
+    const codeLine = document.createElement('div');
+    codeLine.className = 'fold-step-values';
+    codeLine.style.fontSize = '10px';
+    codeLine.textContent = art.compact_pin_code;
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'pin-values';
+    btnRow.style.marginTop = '6px';
+
+    const secVars = [
+      { label: 'Cyclic Fwd', pin: art.pin, folds: cycFolds },
+      { label: 'Cyclic Bwd', pin: art.backward_pin, folds: cycFolds },
+      { label: 'Cypher Fwd', pin: art.cypher_forward_pin, folds: cypFolds },
+      { label: 'Cypher Bwd', pin: art.cypher_backward_pin, folds: cypFolds },
+    ];
+    for (const sv of secVars) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pin-badge';
+      b.style.fontSize = '11px';
+      b.style.padding = '3px 8px';
+      b.textContent = `${sv.label}: ${sv.pin} (k=${sv.folds})`;
+      b.addEventListener('click', () => {
+        runVariableUnfold(`#${sec.orderIndex} ${art.pin_filename} · ${sv.label}`, sv.pin, art.compact_pin_code, art.pin_filename);
+      });
+      btnRow.appendChild(b);
+    }
+
+    const unfold4Btn = document.createElement('button');
+    unfold4Btn.type = 'button';
+    unfold4Btn.className = 'quiet-button';
+    unfold4Btn.style.minHeight = '26px';
+    unfold4Btn.style.padding = '0 8px';
+    unfold4Btn.style.fontSize = '11px';
+    unfold4Btn.textContent = `Unfold → ${art.restore_filename}`;
+    unfold4Btn.addEventListener('click', () => runAllFourVariablesUnfold(art));
+    btnRow.appendChild(unfold4Btn);
+
+    const dlPinBtn = document.createElement('button');
+    dlPinBtn.type = 'button';
+    dlPinBtn.className = 'quiet-button';
+    dlPinBtn.style.minHeight = '26px';
+    dlPinBtn.style.padding = '0 8px';
+    dlPinBtn.style.fontSize = '11px';
+    dlPinBtn.textContent = `Download ${art.pin_filename}`;
+    dlPinBtn.addEventListener('click', () => {
+      downloadTextBlob(art.compact_pin_code, art.pin_filename);
+    });
+    btnRow.appendChild(dlPinBtn);
+
+    card.append(head, codeLine, btnRow);
+    listEl.appendChild(card);
   }
 }
 
 async function runCompression() {
   runButton.disabled = true;
   document.getElementById('result-state').textContent = 'RUNNING';
-  showStatus('Running continuous compression…');
   try {
+    if (loadedFolderEntries.length > 0) {
+      showStatus(`Compiling ${loadedFolderEntries.length} folder items in exact folder order (no master code, separate files)…`);
+      compiledFolderSections = [];
+      const pinLines = [];
+
+      for (let i = 0; i < loadedFolderEntries.length; i++) {
+        const entry = loadedFolderEntries[i];
+        showStatus(`Folding #${entry.orderIndex}/${loadedFolderEntries.length}: ${entry.fileName} → ${entry.pinFileName}…`);
+        const secResp = await fetch('/api/compress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: entry.text, filename: entry.relPath || entry.fileName }),
+        });
+        const secResult = await secResp.json();
+        if (!secResp.ok) throw new Error(secResult.error || `Section ${entry.fileName} compression failed`);
+        
+        if (entry.rawBytes && secResult.artifact && secResult.artifact.compact_pin_code) {
+          RAW_BINARY_VAULT.set(secResult.artifact.compact_pin_code, entry.rawBytes);
+          RAW_BINARY_VAULT.set(secResult.artifact.pin_filename, entry.rawBytes);
+          RAW_BINARY_VAULT.set(secResult.artifact.restore_filename, entry.rawBytes);
+        }
+
+        compiledFolderSections.push({
+          orderIndex: entry.orderIndex,
+          relPath: entry.relPath,
+          fileName: entry.fileName,
+          ext: entry.ext,
+          isBinaryMedia: entry.isBinaryMedia,
+          artifact: secResult.artifact,
+          metrics: secResult.metrics,
+        });
+
+        pinLines.push(secResult.artifact.compact_pin_code);
+      }
+
+      latestArtifact = compiledFolderSections[0].artifact;
+      source.value = pinLines.join('\n');
+      updateInputCounts();
+      renderFolderCompilation(`${currentFolderName}.pin`, latestArtifact, compiledFolderSections);
+      showStatus(
+        `Folder compilation complete in exact folder order · ${compiledFolderSections.length} separate section .pin sets ready.`
+      );
+      return;
+    }
+
+    document.getElementById('folder-compilation-box').hidden = true;
+    showStatus('Running continuous compression…');
     const response = await fetch('/api/compress', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -542,6 +1431,12 @@ async function runCompression() {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
     latestArtifact = result.artifact;
+    if (RAW_BINARY_VAULT.has(currentSourceFileName) && latestArtifact && latestArtifact.compact_pin_code) {
+      const rawB = RAW_BINARY_VAULT.get(currentSourceFileName);
+      RAW_BINARY_VAULT.set(latestArtifact.compact_pin_code, rawB);
+      RAW_BINARY_VAULT.set(latestArtifact.pin_filename, rawB);
+      RAW_BINARY_VAULT.set(latestArtifact.restore_filename, rawB);
+    }
     renderResult(result);
     showStatus(`Complete · ${currentSourceFileName} folded into ${result.metrics.pin_filename} (${result.metrics.pin_bytes} bytes).`);
   } catch (error) {
@@ -566,6 +1461,10 @@ document.getElementById('btn-cypher-fwd-pin').addEventListener('click', () => {
 document.getElementById('btn-cypher-bwd-pin').addEventListener('click', () => {
   runPinDecode(document.getElementById('b12-cypher-bwd-pin').textContent);
 });
+document.getElementById('download-b12-pin').addEventListener('click', () => {
+  if (!latestBlockCompactPin) return;
+  downloadTextBlob(latestBlockCompactPin, 'sequence.pin');
+});
 document.getElementById('load-paper-vector').addEventListener('click', () => {
   block12Input.value = '3655555';
   runBlock12Encode();
@@ -575,18 +1474,123 @@ document.getElementById('load-mixed-vector').addEventListener('click', () => {
   runBlock12Encode();
 });
 
-source.addEventListener('input', updateInputCounts);
+source.addEventListener('input', () => {
+  loadedFolderEntries = [];
+  updateInputCounts();
+});
 document.getElementById('open-file').addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', async () => {
   const [file] = fileInput.files || [];
   if (!file) return;
+  loadedFolderEntries = [];
+  compiledFolderSections = [];
+  document.getElementById('folder-compilation-box').hidden = true;
   currentSourceFileName = file.name;
-  source.value = await file.text();
+  const parsed = await readFileAsCyclicInput(file);
+  source.value = parsed.text;
   updateInputCounts();
-  const baseName = file.name.includes('.') ? file.name.slice(0, file.name.lastIndexOf('.')) : file.name;
-  showStatus(`Loaded ${file.name} (${formatNumber(file.size)} bytes) → will compress to ${baseName}.pin.`);
+  const modeNote = parsed.isBinaryMedia ? ` (converted from ${parsed.ext.toUpperCase()} to Raw Format for 666 Cyclic)` : '';
+  showStatus(`Loaded ${file.name} (${formatNumber(file.size)} bytes)${modeNote} → will compress to ${parsed.pinFileName} and unfold back to ${parsed.restoreFileName}.`);
 });
+
+const SUPPORTED_TEXT_EXTS = new Set(['.txt', '.json', '.html', '.htm', '.csv', '.md', '.xml', '.vcf', '.ics', '.js', '.css', '.py', '.yaml', '.yml']);
+document.getElementById('open-folder').addEventListener('click', () => folderInput.click());
+folderInput.addEventListener('change', async () => {
+  // Keep exact folder order as provided by the directory — do NOT re-sort so order is never lost!
+  const rawFiles = Array.from(folderInput.files || []);
+  if (!rawFiles.length) return;
+
+  const firstRel = rawFiles[0].webkitRelativePath || rawFiles[0].name;
+  currentFolderName = firstRel.includes('/') ? firstRel.split('/')[0] : 'profile_folder';
+
+  loadedFolderEntries = [];
+  const continuousChunks = [];
+  let totalBytes = 0;
+  let orderCounter = 0;
+
+  showStatus(`Reading folder "${currentFolderName}" (${rawFiles.length} items) in exact folder order…`);
+  for (const f of rawFiles) {
+    const dotIdx = f.name.lastIndexOf('.');
+    const ext = dotIdx >= 0 ? f.name.slice(dotIdx).toLowerCase() : '';
+    if (ext && !SUPPORTED_TEXT_EXTS.has(ext) && !isRawMediaExt(ext)) continue;
+    try {
+      const parsed = await readFileAsCyclicInput(f);
+      if (!parsed.text || !parsed.text.trim()) continue;
+      orderCounter += 1;
+      const relPath = f.webkitRelativePath || f.name;
+      loadedFolderEntries.push({
+        orderIndex: orderCounter,
+        relPath,
+        fileName: f.name,
+        baseName: parsed.baseName,
+        ext: parsed.ext,
+        isBinaryMedia: parsed.isBinaryMedia,
+        rawBytes: parsed.rawBytes,
+        pinFileName: parsed.pinFileName,
+        restoreFileName: parsed.restoreFileName,
+        text: parsed.text,
+        size: f.size,
+      });
+      // Cap each chunk's contribution to the master continuous preview stream so huge folders stay within 16 MiB
+      const masterChunkText = parsed.text.length > 16384 ? parsed.text.slice(0, 16384) : parsed.text;
+      continuousChunks.push(`section ${orderCounter} ${relPath}\n${masterChunkText}`);
+      totalBytes += f.size;
+    } catch (_) {
+      // Skip unreadable files
+    }
+  }
+
+  if (!loadedFolderEntries.length) {
+    showStatus('No supported text/JSON/HTML/JPG/video files found in the selected folder.', true);
+    return;
+  }
+
+  currentSourceFileName = `${currentFolderName}.txt`;
+  source.value = continuousChunks.join('\n\n');
+  updateInputCounts();
+  showStatus(
+    `Loaded folder "${currentFolderName}" in exact order (${loadedFolderEntries.length} sections, ${formatNumber(totalBytes)} bytes) → reducing each to <original_name>.pin + master ${currentFolderName}.pin…`
+  );
+  await runCompression();
+});
+
+document.getElementById('save-restored-folder-tree').addEventListener('click', async () => {
+  if (!latestRestoredFolderEntries.length) return;
+  await saveFolderEntriesToDisk(latestRestoredFolderRootName, latestRestoredFolderEntries, `${latestRestoredFolderRootName}.zip`);
+});
+
+document.getElementById('unfold-and-save-folder-tree').addEventListener('click', async () => {
+  if (!compiledFolderSections.length) return;
+  const lines = compiledFolderSections.map(s => s.artifact.compact_pin_code);
+  await unfoldCompiledPinLines(lines, `${currentFolderName}.pin`);
+  if (latestRestoredFolderEntries.length) {
+    await saveFolderEntriesToDisk(latestRestoredFolderRootName, latestRestoredFolderEntries, `${latestRestoredFolderRootName}.zip`);
+  }
+});
+
+document.getElementById('unfold-all-folder-sections').addEventListener('click', async () => {
+  if (!compiledFolderSections.length) return;
+  const lines = compiledFolderSections.map(s => s.artifact.compact_pin_code);
+  await unfoldCompiledPinLines(lines, `${currentFolderName}.pin`);
+});
+
+document.getElementById('download-compiled-folder-pin').addEventListener('click', () => {
+  if (!compiledFolderSections.length) return;
+  const lines = compiledFolderSections.map(s => s.artifact.compact_pin_code);
+  downloadTextBlob(`${lines.join('\n')}\n`, `${currentFolderName}.pin`);
+});
+
+document.getElementById('save-pin-folder-tree').addEventListener('click', async () => {
+  if (!compiledFolderSections.length) return;
+  const { rootName, entries } = buildPinFolderEntries();
+  await saveFolderEntriesToDisk(rootName, entries, `${rootName}.zip`);
+});
+
 document.getElementById('load-sample').addEventListener('click', () => {
+  loadedFolderEntries = [];
+  compiledFolderSections = [];
+  latestUnfoldedBinaryBytes = null;
+  document.getElementById('folder-compilation-box').hidden = true;
   currentSourceFileName = 'alice.txt';
   source.value = 'Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do.';
   updateInputCounts();
@@ -595,6 +1599,10 @@ document.getElementById('load-sample').addEventListener('click', () => {
 document.getElementById('clear-input').addEventListener('click', () => {
   source.value = '';
   latestArtifact = null;
+  loadedFolderEntries = [];
+  compiledFolderSections = [];
+  latestUnfoldedBinaryBytes = null;
+  document.getElementById('folder-compilation-box').hidden = true;
   currentSourceFileName = 'document.txt';
   updateInputCounts();
   showStatus('Input cleared.');
@@ -621,31 +1629,30 @@ document.getElementById('download-pin-txt').addEventListener('click', () => {
   if (!latestArtifact) return;
   const code = latestArtifact.compact_pin_code || latestArtifact.pin;
   const pinFileName = latestArtifact.pin_filename || 'document.pin';
-  const blob = new Blob([`${code}`], { type: 'text/plain' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = pinFileName;
-  link.click();
-  URL.revokeObjectURL(link.href);
+  downloadTextBlob(code, pinFileName);
 });
-document.getElementById('download-restored-file').addEventListener('click', () => {
+document.getElementById('download-restored-file').addEventListener('click', async () => {
+  if (latestRestoredFolderEntries && latestRestoredFolderEntries.length > 0) {
+    await saveFolderEntriesToDisk(latestRestoredFolderRootName, latestRestoredFolderEntries, `${latestRestoredFolderRootName}.zip`);
+    return;
+  }
+  if (latestUnfoldedBinaryBytes && latestUnfoldedBinaryBytes.length > 0) {
+    downloadBinaryBytes(latestUnfoldedBinaryBytes, latestUnfoldedFilename || 'restored.bin', latestUnfoldedMime || 'application/octet-stream');
+    return;
+  }
   if (!latestUnfoldedText) return;
-  const blob = new Blob([latestUnfoldedText], { type: 'text/plain;charset=utf-8' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = latestUnfoldedFilename || 'document.txt';
-  link.click();
-  URL.revokeObjectURL(link.href);
+  downloadTextBlob(latestUnfoldedText, latestUnfoldedFilename || 'document.txt');
 });
 document.getElementById('download-json').addEventListener('click', () => {
   if (!latestArtifact) return;
   const baseName = latestArtifact.base_name || 'document';
-  const blob = new Blob([`${JSON.stringify(latestArtifact)}\n`], { type: 'application/json' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `${baseName}.pin.json`;
-  link.click();
-  URL.revokeObjectURL(link.href);
+  const payload = compiledFolderSections.length
+    ? {
+        master_profile_pin: latestArtifact,
+        sections: compiledFolderSections.map(s => s.artifact),
+      }
+    : latestArtifact;
+  downloadTextBlob(`${JSON.stringify(payload, null, 2)}\n`, `${baseName}.pin.json`, 'application/json');
 });
 updateInputCounts();
 runBlock12Encode();

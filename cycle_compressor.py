@@ -205,6 +205,10 @@ def compress_text(text: str) -> Dict[str, object]:
             "apex_pairs": [],
             "bidir_verified": True,
             "fold_log": [],
+            "fold_amount": 0,
+            "unfolds_to_complete": 0,
+            "cypher_fold_amount": 0,
+            "cypher_unfolds_to_complete": 0,
             "anchor_counts": {},
             "duality_checks": 0,
             "pin_only_12block": compress_12block_stream([]),
@@ -258,6 +262,13 @@ def compress_text(text: str) -> Dict[str, object]:
         rl_final = current
     apex_bidir = check_bidirectional_pairs(lr_final, rl_final)
 
+    pin12_data = compress_12block_stream(
+        ordered_values,
+        cypher_order_stream=ordered_cypher_numbers,
+    )
+    folds_to_7 = int(pin12_data.get("folds_to_7") or folds_count)
+    cypher_folds_to_7 = int(pin12_data.get("cypher_folds_to_7") or folds_to_7)
+
     return {
         "input_length": len(text),
         "cipher_order": order,
@@ -272,12 +283,13 @@ def compress_text(text: str) -> Dict[str, object]:
         "apex_pairs": apex_bidir["apex_pairs"],
         "bidir_verified": apex_bidir["bidir_verified"],
         "fold_log": folds,
+        "fold_amount": folds_to_7,
+        "unfolds_to_complete": folds_to_7,
+        "cypher_fold_amount": cypher_folds_to_7,
+        "cypher_unfolds_to_complete": cypher_folds_to_7,
         "anchor_counts": {str(v): c for v, c in anchor_counts.items()},
         "duality_checks": duality_checks,
-        "pin_only_12block": compress_12block_stream(
-            ordered_values,
-            cypher_order_stream=ordered_cypher_numbers,
-        ),
+        "pin_only_12block": pin12_data,
         "cyclic": CYCLIC,
         "rotor": build_rotor_matrix(),
         "project": PROJECT_NAME,

@@ -22,7 +22,7 @@ print(pin)  # -> [3, 6, 9, 1, 5, 2]  (example values)
 
 from __future__ import annotations
 
-from typing import List
+from typing import Any, Dict, List
 
 # Import the main compressor implementation.
 from cycle_compressor import compress_text
@@ -45,10 +45,32 @@ def get_pin(text: str) -> List[int]:
     return result["pin"]
 
 
+def get_pin_with_folds(text: str) -> Dict[str, Any]:
+    """Compress *text* and return the PIN Set along with the fold amounts
+    (how many unfolds to complete).
+    """
+    result = compress_text(text)
+    pin12 = result.get("pin_only_12block", {})
+    folds = int(result.get("fold_amount") or pin12.get("folds_to_7") or len(result.get("fold_log", [])))
+    cypher_folds = int(result.get("cypher_fold_amount") or pin12.get("cypher_folds_to_7") or folds)
+    return {
+        "pin": result["pin"],
+        "forward_pin": pin12.get("forward_pin"),
+        "backward_pin": pin12.get("backward_pin"),
+        "cypher_forward_pin": pin12.get("cypher_forward_pin"),
+        "cypher_backward_pin": pin12.get("cypher_backward_pin"),
+        "fold_amount": folds,
+        "unfolds_to_complete": folds,
+        "cypher_fold_amount": cypher_folds,
+        "cypher_unfolds_to_complete": cypher_folds,
+        "compact_pin_code": pin12.get("compact_pin_code"),
+    }
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
         print("Usage: python pin_extractor.py <text>")
         sys.exit(1)
     input_text = " ".join(sys.argv[1:])
-    print(get_pin(input_text))
+    print(get_pin_with_folds(input_text))

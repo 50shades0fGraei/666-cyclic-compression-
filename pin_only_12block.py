@@ -586,6 +586,10 @@ def encode_12block(
 
     pin_storage_len = len(forward_pin.replace("-", ""))
     reduction_pct = round((1.0 - (pin_storage_len / orig_len)) * 100, 1) if orig_len else 0.0
+    compact_pin_code = (
+        f"{forward_pin}|{backward_pin}|{cypher_forward_pin}|{cypher_backward_pin}"
+        f"|folds={folds_to_7},{cypher_folds_to_7}|unfolds={folds_to_7},{cypher_folds_to_7}"
+    )
 
     is_small = len(raw_str) <= 64
     return {
@@ -600,6 +604,8 @@ def encode_12block(
         # Primary (Cyclic) stream results
         "seven_numbers": seven_numbers,
         "folds_to_7": folds_to_7,
+        "fold_amount": folds_to_7,
+        "unfolds_to_complete": folds_to_7,
         "apex": apex,
         "forward_pin": forward_pin,
         "backward_pin": backward_pin,
@@ -607,9 +613,12 @@ def encode_12block(
         # Cypher Order by Number stream results (both forward and backward pins + fold amount)
         "cypher_seven_numbers": cypher_seven_numbers,
         "cypher_folds_to_7": cypher_folds_to_7,
+        "cypher_fold_amount": cypher_folds_to_7,
+        "cypher_unfolds_to_complete": cypher_folds_to_7,
         "cypher_apex": cypher_apex,
         "cypher_forward_pin": cypher_forward_pin,
         "cypher_backward_pin": cypher_backward_pin,
+        "compact_pin_code": compact_pin_code,
         "triple_sum_unfold_guide": triple_sum_unfold_guide,
         "signpost_descriptors": descriptors if is_small else [],
         "storage_chars": pin_storage_len,
@@ -621,6 +630,8 @@ def decode_pin(
     pin: str,
     logic: FixedLogic = DEFAULT_LOGIC,
     descriptors: Optional[List[Dict[str, Any]]] = None,
+    unfolds_to_complete: Optional[int] = None,
+    cypher_unfolds_to_complete: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Section 3: Algorithm Decode(P, L) — Pin-Only Lossless Reconstruction.
 
@@ -631,6 +642,33 @@ def decode_pin(
       - d*9 (18, 45, 72, 81) working in place -> restores repeat of d
     """
     normalized_pin = pin.strip()
+    parsed_bwd_pin: Optional[str] = None
+    parsed_cypher_fwd_pin: Optional[str] = None
+    parsed_cypher_bwd_pin: Optional[str] = None
+
+    if "|" in normalized_pin:
+        parts = [p.strip() for p in normalized_pin.split("|") if p.strip()]
+        if parts:
+            normalized_pin = parts[0]
+        if len(parts) >= 2 and not parts[1].startswith(("k=", "folds=", "unfolds=", "ext=", "name=")):
+            parsed_bwd_pin = parts[1]
+        if len(parts) >= 3 and not parts[2].startswith(("k=", "folds=", "unfolds=", "ext=", "name=")):
+            parsed_cypher_fwd_pin = parts[2]
+        if len(parts) >= 4 and not parts[3].startswith(("k=", "folds=", "unfolds=", "ext=", "name=")):
+            parsed_cypher_bwd_pin = parts[3]
+        for part in parts[1:]:
+            if part.startswith(("unfolds=", "folds=", "k=")):
+                _, _, val_str = part.partition("=")
+                nums = [int(x) for x in val_str.split(",") if x.strip().isdigit()]
+                if nums and unfolds_to_complete is None:
+                    unfolds_to_complete = nums[0]
+                if len(nums) >= 2 and cypher_unfolds_to_complete is None:
+                    cypher_unfolds_to_complete = nums[1]
+
+    resolved_unfolds = unfolds_to_complete if unfolds_to_complete is not None else 1
+    resolved_cypher_unfolds = (
+        cypher_unfolds_to_complete if cypher_unfolds_to_complete is not None else resolved_unfolds
+    )
 
     if normalized_pin in ("298-1", "882-7") and not descriptors:
         direction = "forward" if normalized_pin == "298-1" else "backward"
@@ -645,10 +683,18 @@ def decode_pin(
         reconstructed = "".join(str(int(p) // 9) for p in pairs)
         return {
             "pin": normalized_pin,
+            "backward_pin": parsed_bwd_pin or ("882-7" if direction == "forward" else "298-1"),
             "direction": direction,
             "apex": apex,
             "seven_numbers": consolidated,
-            "folds_to_7": 1,
+            "folds_to_7": resolved_unfolds,
+            "fold_amount": resolved_unfolds,
+            "unfolds_to_complete": resolved_unfolds,
+            "cypher_folds_to_7": resolved_cypher_unfolds,
+            "cypher_fold_amount": resolved_cypher_unfolds,
+            "cypher_unfolds_to_complete": resolved_cypher_unfolds,
+            "cypher_forward_pin": parsed_cypher_fwd_pin,
+            "cypher_backward_pin": parsed_cypher_bwd_pin,
             "nine_origins": identify_nine_pairs_in_stream(expanded),
             "mirror_11_trace": [
                 {"step": 1, "multiplied": step1_11, "digit_sum": step1_sum},
@@ -701,6 +747,7 @@ def decode_pin(
         expanded_str = "".join(expanded_parts)
         return {
             "pin": normalized_pin,
+            "backward_pin": reencoded["backward_pin"],
             "direction": (
                 "forward"
                 if normalized_pin in (reencoded["forward_pin"], reencoded["cypher_forward_pin"])
@@ -709,9 +756,13 @@ def decode_pin(
             "apex": reencoded["apex"],
             "seven_numbers": reencoded["seven_numbers"],
             "folds_to_7": reencoded["folds_to_7"],
+            "fold_amount": reencoded["folds_to_7"],
+            "unfolds_to_complete": reencoded["folds_to_7"],
             "cypher_apex": reencoded["cypher_apex"],
             "cypher_seven_numbers": reencoded["cypher_seven_numbers"],
             "cypher_folds_to_7": reencoded["cypher_folds_to_7"],
+            "cypher_fold_amount": reencoded["cypher_folds_to_7"],
+            "cypher_unfolds_to_complete": reencoded["cypher_folds_to_7"],
             "cypher_forward_pin": reencoded["cypher_forward_pin"],
             "cypher_backward_pin": reencoded["cypher_backward_pin"],
             "nine_origins": identify_nine_pairs_in_stream(expanded_str[:64]),
@@ -783,10 +834,18 @@ def decode_pin(
     reconstructed = "".join(rebuilt_digits)
     return {
         "pin": normalized_pin,
+        "backward_pin": parsed_bwd_pin,
         "direction": "forward",
         "apex": apex,
         "seven_numbers": seven_numbers,
-        "folds_to_7": 1,
+        "folds_to_7": resolved_unfolds,
+        "fold_amount": resolved_unfolds,
+        "unfolds_to_complete": resolved_unfolds,
+        "cypher_folds_to_7": resolved_cypher_unfolds,
+        "cypher_fold_amount": resolved_cypher_unfolds,
+        "cypher_unfolds_to_complete": resolved_cypher_unfolds,
+        "cypher_forward_pin": parsed_cypher_fwd_pin,
+        "cypher_backward_pin": parsed_cypher_bwd_pin,
         "nine_origins": identify_nine_pairs_in_stream(expanded_str),
         "mirror_11_trace": [
             {"step": 1, "multiplied": step1_11, "digit_sum": step1_sum},
@@ -820,14 +879,19 @@ def compress_12block_stream(
             "block_count": 0,
             "seven_numbers": None,
             "folds_to_7": 0,
+            "fold_amount": 0,
+            "unfolds_to_complete": 0,
             "forward_pin": None,
             "backward_pin": None,
             "apex": None,
             "cypher_seven_numbers": None,
             "cypher_folds_to_7": 0,
+            "cypher_fold_amount": 0,
+            "cypher_unfolds_to_complete": 0,
             "cypher_apex": None,
             "cypher_forward_pin": None,
             "cypher_backward_pin": None,
+            "compact_pin_code": None,
             "unfold_count_k": 0,
             "forward_pins": [],
             "backward_pins": [],
@@ -842,15 +906,20 @@ def compress_12block_stream(
         "block_count": block_count,
         "seven_numbers": encoded["seven_numbers"],
         "folds_to_7": encoded["folds_to_7"],
+        "fold_amount": encoded["fold_amount"],
+        "unfolds_to_complete": encoded["unfolds_to_complete"],
         "apex": encoded["apex"],
         "forward_pin": encoded["forward_pin"],
         "backward_pin": encoded["backward_pin"],
         "unfold_count_k": encoded["folds_to_7"],
         "cypher_seven_numbers": encoded["cypher_seven_numbers"],
         "cypher_folds_to_7": encoded["cypher_folds_to_7"],
+        "cypher_fold_amount": encoded["cypher_fold_amount"],
+        "cypher_unfolds_to_complete": encoded["cypher_unfolds_to_complete"],
         "cypher_apex": encoded["cypher_apex"],
         "cypher_forward_pin": encoded["cypher_forward_pin"],
         "cypher_backward_pin": encoded["cypher_backward_pin"],
+        "compact_pin_code": encoded["compact_pin_code"],
         "nine_origins": encoded["nine_origins"],
         "storage_chars": encoded["storage_chars"],
         "reduction_percent": encoded["reduction_percent"],
@@ -868,5 +937,12 @@ def decompress_12block_stream(compressed: Dict[str, Any], use_backward: bool = F
     if not pin:
         return ""
     descs = compressed.get("signpost_descriptors")
-    decoded = decode_pin(pin, descriptors=descs)
+    unfolds = compressed.get("unfolds_to_complete") or compressed.get("folds_to_7")
+    cypher_unfolds = compressed.get("cypher_unfolds_to_complete") or compressed.get("cypher_folds_to_7")
+    decoded = decode_pin(
+        pin,
+        descriptors=descs,
+        unfolds_to_complete=unfolds,
+        cypher_unfolds_to_complete=cypher_unfolds,
+    )
     return decoded["reconstructed"]
